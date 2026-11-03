@@ -1,0 +1,33 @@
+{
+  "request_id": "e6bc7528-17c8-40eb-b7ad-3e0fc4e4d275",
+  "model_version": "onnx-alphabet-45ff2c0e2692+motion-v4",
+  "feature_version": "skeleton_rgb96_canvas192_fill07_pixel_aspect_v1",
+  "status": "recognized",
+  "target_label": "A",
+  "predicted_label": "A",
+  "score": 0.9979076385498047,
+  "predicted_sign": "A",
+  "model_confidence": 0.9979076385498047,
+  "valid": true,
+  "matches_target": true,
+  "top3": [
+    {
+      "label": "A",
+      "score": 0.9979076385498047
+    },
+    {
+      "label": "T",
+      "score": 0.0013064425438642502
+    },
+    {
+      "label": "S",
+      "score": 0.0006697625503875315
+    }
+  ],
+  "error_type": null,
+  "diagnosis_supported": false,
+  "update_error_history": false,
+  "processing_ms": 13.76409997465089,
+  "recognition_method": "static_classifier",
+  "motion_details": null
+}

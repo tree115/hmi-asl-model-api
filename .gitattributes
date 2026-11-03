@@ -1,0 +1,3 @@
+* text=auto
+# Preserve upstream asset bytes: runtime verifies SHA256 digests.
+models/onnx_alphabet/** -text

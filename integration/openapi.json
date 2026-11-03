@@ -1,0 +1,732 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ASL Practice AI",
+    "version": "0.4.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/capabilities": {
+      "get": {
+        "summary": "Capabilities",
+        "operationId": "capabilities_api_v1_ai_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/predict/landmarks": {
+      "post": {
+        "summary": "Landmark Prediction",
+        "operationId": "landmark_prediction_api_v1_ai_predict_landmarks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LandmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prediction"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/predict/attempt": {
+      "post": {
+        "summary": "Attempt Prediction",
+        "operationId": "attempt_prediction_api_v1_ai_predict_attempt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttemptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptPrediction"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AttemptPrediction": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "feature_version": {
+            "type": "string",
+            "title": "Feature Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "recognized",
+              "uncertain",
+              "no_hand",
+              "invalid_landmarks",
+              "unsupported_target"
+            ],
+            "title": "Status"
+          },
+          "target_label": {
+            "type": "string",
+            "title": "Target Label"
+          },
+          "predicted_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Label"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "Legacy alias of model_confidence; NOT a learner skill score"
+          },
+          "predicted_sign": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Sign"
+          },
+          "model_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Confidence",
+            "description": "Classifier output, not a calibrated skill or correctness probability"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid",
+            "default": false
+          },
+          "matches_target": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Target",
+            "description": "Accepted predicted label matches target; null when assessment is unavailable"
+          },
+          "top3": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "type": "array",
+            "title": "Top3"
+          },
+          "error_type": {
+            "type": "null",
+            "title": "Error Type"
+          },
+          "diagnosis_supported": {
+            "type": "boolean",
+            "const": false,
+            "title": "Diagnosis Supported",
+            "default": false
+          },
+          "update_error_history": {
+            "type": "boolean",
+            "const": false,
+            "title": "Update Error History",
+            "default": false
+          },
+          "processing_ms": {
+            "type": "number",
+            "title": "Processing Ms"
+          },
+          "recognition_method": {
+            "type": "string",
+            "title": "Recognition Method",
+            "default": "static_classifier"
+          },
+          "motion_details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Details"
+          },
+          "client_attempt_id": {
+            "type": "string",
+            "title": "Client Attempt Id"
+          },
+          "frames_received": {
+            "type": "integer",
+            "title": "Frames Received"
+          },
+          "frames_usable": {
+            "type": "integer",
+            "title": "Frames Usable"
+          },
+          "accepted_frames": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Frames"
+          },
+          "winning_votes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winning Votes"
+          },
+          "stability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stability"
+          },
+          "aggregation_policy": {
+            "type": "string",
+            "title": "Aggregation Policy",
+            "default": "experimental_3_accepted_min_75pct_all_frames_v1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "model_version",
+          "feature_version",
+          "status",
+          "target_label",
+          "processing_ms",
+          "client_attempt_id",
+          "frames_received",
+          "frames_usable",
+          "accepted_frames",
+          "winning_votes",
+          "stability"
+        ],
+        "title": "AttemptPrediction"
+      },
+      "AttemptRequest": {
+        "properties": {
+          "client_attempt_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Attempt Id"
+          },
+          "target_label": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Target Label"
+          },
+          "image_width": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Image Width"
+          },
+          "image_height": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Image Height"
+          },
+          "coordinate_space": {
+            "type": "string",
+            "const": "mediapipe_image_normalized_v1",
+            "title": "Coordinate Space",
+            "default": "mediapipe_image_normalized_v1"
+          },
+          "mirrored": {
+            "type": "boolean",
+            "const": false,
+            "title": "Mirrored",
+            "default": false
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/Frame"
+            },
+            "type": "array",
+            "maxItems": 180,
+            "minItems": 4,
+            "title": "Frames"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_attempt_id",
+          "target_label",
+          "image_width",
+          "image_height",
+          "frames"
+        ],
+        "title": "AttemptRequest"
+      },
+      "Candidate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "score"
+        ],
+        "title": "Candidate"
+      },
+      "Frame": {
+        "properties": {
+          "handedness": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Left",
+                  "Right"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handedness"
+          },
+          "timestamp_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Timestamp Ms"
+          },
+          "landmarks": {
+            "anyOf": [
+              {
+                "items": {
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array",
+                  "maxItems": 3,
+                  "minItems": 3
+                },
+                "type": "array",
+                "maxItems": 21,
+                "minItems": 21
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Landmarks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp_ms",
+          "landmarks"
+        ],
+        "title": "Frame"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LandmarkRequest": {
+        "properties": {
+          "target_label": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Target Label"
+          },
+          "landmarks": {
+            "anyOf": [
+              {
+                "items": {
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array",
+                  "maxItems": 3,
+                  "minItems": 3
+                },
+                "type": "array",
+                "maxItems": 21,
+                "minItems": 21
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Landmarks"
+          },
+          "image_width": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Image Width"
+          },
+          "image_height": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Image Height"
+          },
+          "coordinate_space": {
+            "type": "string",
+            "const": "mediapipe_image_normalized_v1",
+            "title": "Coordinate Space",
+            "default": "mediapipe_image_normalized_v1"
+          },
+          "mirrored": {
+            "type": "boolean",
+            "const": false,
+            "title": "Mirrored",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_label",
+          "landmarks",
+          "image_width",
+          "image_height"
+        ],
+        "title": "LandmarkRequest"
+      },
+      "Prediction": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "feature_version": {
+            "type": "string",
+            "title": "Feature Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "recognized",
+              "uncertain",
+              "no_hand",
+              "invalid_landmarks",
+              "unsupported_target"
+            ],
+            "title": "Status"
+          },
+          "target_label": {
+            "type": "string",
+            "title": "Target Label"
+          },
+          "predicted_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Label"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "Legacy alias of model_confidence; NOT a learner skill score"
+          },
+          "predicted_sign": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Sign"
+          },
+          "model_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Confidence",
+            "description": "Classifier output, not a calibrated skill or correctness probability"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid",
+            "default": false
+          },
+          "matches_target": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Target",
+            "description": "Accepted predicted label matches target; null when assessment is unavailable"
+          },
+          "top3": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "type": "array",
+            "title": "Top3"
+          },
+          "error_type": {
+            "type": "null",
+            "title": "Error Type"
+          },
+          "diagnosis_supported": {
+            "type": "boolean",
+            "const": false,
+            "title": "Diagnosis Supported",
+            "default": false
+          },
+          "update_error_history": {
+            "type": "boolean",
+            "const": false,
+            "title": "Update Error History",
+            "default": false
+          },
+          "processing_ms": {
+            "type": "number",
+            "title": "Processing Ms"
+          },
+          "recognition_method": {
+            "type": "string",
+            "title": "Recognition Method",
+            "default": "static_classifier"
+          },
+          "motion_details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "model_version",
+          "feature_version",
+          "status",
+          "target_label",
+          "processing_ms"
+        ],
+        "title": "Prediction"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

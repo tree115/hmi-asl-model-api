@@ -1,0 +1,36 @@
+{
+  "repo": "punpuniacitizen/MediaPipe-ASL-sign-language-recognition",
+  "revision": "45ff2c0e26925c50f4546073bd573fe3ca7a5e6e",
+  "files": [
+    {
+      "path": "asl_cnn_model.onnx",
+      "source": "https://raw.githubusercontent.com/punpuniacitizen/MediaPipe-ASL-sign-language-recognition/45ff2c0e26925c50f4546073bd573fe3ca7a5e6e/asl_cnn_model.onnx",
+      "bytes": 1235355,
+      "sha256": "c3843cabc57032080a81e5995b578139c90631080af1e6d070df1c6dfdc1172b"
+    },
+    {
+      "path": "class_names.txt",
+      "source": "https://raw.githubusercontent.com/punpuniacitizen/MediaPipe-ASL-sign-language-recognition/45ff2c0e26925c50f4546073bd573fe3ca7a5e6e/class_names.txt",
+      "bytes": 51,
+      "sha256": "9bcf92a12d8469d0b9b9a8a493e639b51fe3a8b46e05f776ef34cddf5b945847"
+    },
+    {
+      "path": "preprocessing.py",
+      "source": "https://raw.githubusercontent.com/punpuniacitizen/MediaPipe-ASL-sign-language-recognition/45ff2c0e26925c50f4546073bd573fe3ca7a5e6e/preprocessing.py",
+      "bytes": 8810,
+      "sha256": "bdeb88681c9344fd5406bec089431e7ffdf3e54714be5146a358bf6e7819bb97"
+    },
+    {
+      "path": "README.md",
+      "source": "https://raw.githubusercontent.com/punpuniacitizen/MediaPipe-ASL-sign-language-recognition/45ff2c0e26925c50f4546073bd573fe3ca7a5e6e/README.md",
+      "bytes": 19638,
+      "sha256": "59d9742e5797c9ffd2264101ae8efbe540c54cb3909df4f0c79df69d78b778c3"
+    },
+    {
+      "path": "LICENSE",
+      "source": "https://raw.githubusercontent.com/punpuniacitizen/MediaPipe-ASL-sign-language-recognition/45ff2c0e26925c50f4546073bd573fe3ca7a5e6e/LICENSE",
+      "bytes": 1494,
+      "sha256": "0052d379f72108bdf3cd0169ad81864c754dab450e2c527554a406425d26c555"
+    }
+  ]
+}
