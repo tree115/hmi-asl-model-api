@@ -28,7 +28,7 @@ MediaPipe chạy ở FE; FE/BE gửi landmark gốc, không gửi ảnh/video v�
 
 24 chữ tĩnh dùng ONNX. J cần hình tay I/J + quỹ đạo ngón út.
 Z cần hình tay D/Z từ ONNX + quỹ đạo ngón trỏ đã lọc, cả hai bắt buộc đạt.
-Chưa có WLASL, điểm kỹ năng, chẩn đoán lỗi thành phần hoặc adaptive feedback.
+Chưa có WLASL
 
 ## Kiểm tra
 
