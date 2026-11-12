@@ -74,6 +74,11 @@ chỉ xác nhận đã chạy classifier gate, không có nghĩa đã chấm k�
 score của API là alias confidence cũ, không lưu vào điểm kỹ năng. BE để score
 nghiệp vụ=null, errors=[]; error_type=null, diagnosis_supported=false,
 update_error_history=false. Không tự suy ra lỗi ngón tay từ nhãn khác mục tiêu.
+Ngoại lệ thử nghiệm: POST /api/v1/ai/errors/detect trả các sai lệch đặc trưng khi
+AI_ERROR_TEMPLATE_DATA trỏ tới file .npz template đã build và lưu trước
+(labels, means, stds). API cache và tái sử dụng template, không build lại mỗi
+request. Nếu chưa cấu hình, endpoint trả 503; không coi đây là chẩn đoán/điểm
+kỹ năng, không lưu vào lịch sử lỗi người học.
 
 uncertain/no_hand/invalid_landmarks/unsupported_target: matches_target=null.
 422: request sai; 503/504: service lỗi. Không lưu lỗi hệ thống thành người học sai.

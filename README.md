@@ -22,9 +22,16 @@ Swagger: http://127.0.0.1:8001/docs. Chi tiết: [HANDOFF_BE.md](HANDOFF_BE.md).
 - `GET /health`
 - `GET /api/v1/ai/capabilities`
 - `POST /api/v1/ai/predict/landmarks`: 21 điểm của một khung hình.
+- `POST /api/v1/ai/errors/detect`: so sánh đặc trưng với mẫu chuẩn nếu đã cấu hình.
 - `POST /api/v1/ai/predict/attempt`: một chuỗi 21 điểm theo thời gian.
 
 MediaPipe chạy ở FE; FE/BE gửi landmark gốc, không gửi ảnh/video vào gói này.
+
+Endpoint phát hiện lỗi cần biến môi trường `AI_ERROR_TEMPLATE_DATA` trỏ tới file
+`.npz` template đã tạo trước bằng `build_templates(X, y)` rồi lưu với
+`save_templates(path, templates)`. File chứa `labels`, `means`, `stds`; API chỉ
+nạp template đã lưu, cache để tái sử dụng, không tính template lại mỗi request.
+Chưa có file template thì endpoint trả HTTP 503.
 
 24 chữ tĩnh dùng ONNX. J cần hình tay I/J + quỹ đạo ngón út.
 Z cần hình tay D/Z từ ONNX + quỹ đạo ngón trỏ đã lọc, cả hai bắt buộc đạt.
