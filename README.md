@@ -37,3 +37,7 @@ $aiPython = Join-Path $env:USERPROFILE '.cache\asl-practice-ai\venv-api\Scripts\
 & $aiPython -m scripts.check_handoff
 & $aiPython -m scripts.check_z_index
 ```
+
+## Bài luyện từ GestureSign
+
+FastAPI hỗ trợ 250 ký hiệu từ. Xem [hướng dẫn bàn giao cho backend và frontend](HANDOFF_WORD.md).

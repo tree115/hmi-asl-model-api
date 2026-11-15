@@ -11,8 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import numpy as np
-from pydantic import BaseModel, Field, FiniteFloat, model_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
+from ai.gesturesign import GestureSign, label_key
 from ai.onnx_alphabet import OnnxAlphabetClassifier
 
 
@@ -184,6 +185,7 @@ class Engine:
 @asynccontextmanager
 async def lifespan(app):
     app.state.engine = Engine()
+    app.state.word_engine = GestureSign()
     yield
 
 
@@ -214,7 +216,7 @@ def capabilities():
             "dynamic_letter_method": "experimental_trajectory_rules_v4",
             "dynamic_letter_modes": {"J": "handshape_and_pinky_trajectory", "Z": "onnx_DZ_handshape_and_filtered_index_trajectory"},
             "dynamic_input_requirements": {"endpoint": "attempt", "min_frames": 15, "max_gap_ms": 250, "handedness_required": True}, "model_output_labels": engine.labels,
-            "recognition_scope": "static_and_dynamic_alphabet" if engine.provider == "onnx_alphabet" else "static_alphabet", "dynamic_word_recognition": False,
+            "recognition_scope": "static_and_dynamic_alphabet" if engine.provider == "onnx_alphabet" else "static_alphabet", "dynamic_word_recognition": True, "word_capabilities_endpoint": "/api/v1/ai/words/capabilities",
             "input_types": ["landmarks", "attempt_frames"],
             "coordinate_space": "mediapipe_image_normalized_v1", "mirrored": False,
             "feature_version": engine.feature_version, "model_version": engine.version,
@@ -235,3 +237,75 @@ def landmark_prediction(payload: LandmarkRequest):
 @app.post("/api/v1/ai/predict/attempt", response_model=AttemptPrediction)
 def attempt_prediction(payload: AttemptRequest):
     return app.state.engine.attempt(payload)
+
+
+Point = tuple[Annotated[FiniteFloat, Field(ge=-100, le=100)],
+              Annotated[FiniteFloat, Field(ge=-100, le=100)],
+              Annotated[FiniteFloat, Field(ge=-100, le=100)]]
+Hand = Annotated[list[Point | None], Field(min_length=21, max_length=21)]
+
+
+class WordFrame(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    left_hand: Hand | None = None
+    right_hand: Hand | None = None
+    pose: Annotated[list[Point | None], Field(min_length=33, max_length=33)] | None = None
+    face: Annotated[list[Point | None], Field(min_length=468, max_length=468)] | None = None
+
+
+class WordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    client_attempt_id: str = Field(min_length=1, max_length=80)
+    target_label: str = Field(min_length=1, max_length=80)
+    fps: FiniteFloat = Field(ge=1, le=120)
+    coordinate_space: Literal["mediapipe_holistic_image_normalized_v1"] = "mediapipe_holistic_image_normalized_v1"
+    mirrored: Literal[False] = False
+    frames: list[WordFrame] = Field(min_length=1, max_length=600)
+
+    @model_validator(mode="after")
+    def capture_duration(self):
+        if (len(self.frames) - 1) / self.fps > 5.1:
+            raise ValueError("Word clip must span at most 5 seconds")
+        return self
+
+
+class WordPrediction(Prediction):
+    client_attempt_id: str
+    frames_received: int
+    frames_usable: int
+
+
+@app.get("/api/v1/ai/words/capabilities")
+def word_capabilities():
+    engine = app.state.word_engine
+    return {
+        "model_version": engine.meta["version"],
+        "feature_version": str(engine.meta["featureVersion"]),
+        "supported_targets": [row["label"] for row in engine.labels if row["shipped"]],
+        "coordinate_space": "mediapipe_holistic_image_normalized_v1",
+        "mirrored": False,
+        "max_duration_ms": 5000,
+        "confidence_threshold": engine.meta["calibration"]["notSureBelow"],
+    }
+
+
+@app.post("/api/v1/ai/predict/word", response_model=WordPrediction)
+def word_prediction(payload: WordRequest):
+    started = time.perf_counter()
+    engine = app.state.word_engine
+    target = engine.targets.get(label_key(payload.target_label))
+    status, usable, guesses = ("unsupported_target", 0, []) if target is None else engine.predict(
+        payload.frames, payload.fps
+    )
+    valid = status == "recognized"
+    label, score = guesses[0] if valid else (None, None)
+    return WordPrediction(
+        request_id=str(uuid4()), client_attempt_id=payload.client_attempt_id,
+        target_label=target or payload.target_label, status=status, valid=valid,
+        predicted_label=label, predicted_sign=label, score=score, model_confidence=score,
+        matches_target=(label == target) if valid else None,
+        top3=[Candidate(label=name, score=prob) for name, prob in guesses],
+        model_version=engine.meta["version"], feature_version=str(engine.meta["featureVersion"]),
+        recognition_method="gesturesign_onnx", frames_received=len(payload.frames),
+        frames_usable=usable, processing_ms=(time.perf_counter() - started) * 1000,
+    )
