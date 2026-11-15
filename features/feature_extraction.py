@@ -16,13 +16,32 @@ from models.onnx_alphabet import preprocessing as pre
 
 
 def preprocess_hand(hand_landmarks, frame_width, frame_height):
-    points_px = pre.landmarks_to_pixels(hand_landmarks, frame_width, frame_height)
-    norm_points = pre.normalize_landmarks(points_px)
-    palm_px = np.linalg.norm(
-        points_px[9] - points_px[0]
-    )  # ghi bừa chắc là đúng =))
-    if palm_px < 0.05 * np.ptp(points_px, axis=0).max():
+    if frame_width <= 0 or frame_height <= 0:
+        raise ValueError("frame dimensions must be positive")
+
+    if hasattr(hand_landmarks, "landmark"):
+        points_px = pre.landmarks_to_pixels(
+            hand_landmarks, frame_width, frame_height
+        )
+    else:
+        landmarks = np.asarray(hand_landmarks, dtype=float)
+        if landmarks.shape not in ((21, 2), (21, 3)):
+            raise ValueError("landmarks must have shape (21, 2) or (21, 3)")
+        if not np.isfinite(landmarks).all():
+            raise ValueError("landmarks must contain only finite values")
+        points_px = landmarks[:, :2] * np.array(
+            [frame_width, frame_height], dtype=float
+        )
+
+    if not np.isfinite(points_px).all():
+        raise ValueError("landmarks must contain only finite values")
+
+    hand_extent = np.ptp(points_px, axis=0).max()
+    palm_length = np.linalg.norm(points_px[9] - points_px[0])
+    if hand_extent <= 0 or palm_length < 0.05 * hand_extent:
         raise ValueError("Palm too foreshortened")
+
+    norm_points = pre.normalize_landmarks(points_px)
     return norm_points
 
 
@@ -79,9 +98,10 @@ def calc_hand_distance(hand_data, selection=True):
 
 def calc_hand_orientation_2d(hand_data, is_left=False, eps=1e-8):
     """
-    hand_data: (frames, 21, 2). Trả về (frames, 6):
-    sin/cos roll (2), hướng ngang bàn tay (2), diện tích có dấu (1), tỉ lệ rộng/dài (1).
+    hand_data: (frames, 21, 2). Trả về (frames, 4):
+    sin/cos roll và hướng trục ngang đã chuẩn hóa.
     """
+    del is_left  # Retained for compatibility; these features are side-agnostic.
     wrist = hand_data[:, 0]
     idx = hand_data[:, 5]
     mid = hand_data[:, 9]
@@ -89,30 +109,13 @@ def calc_hand_orientation_2d(hand_data, is_left=False, eps=1e-8):
 
     v = mid - wrist  # trục dọc
     h = pinky - idx  # trục ngang
-    palm_len = np.linalg.norm(v, axis=1) + eps
     palm_wid = np.linalg.norm(h, axis=1) + eps
 
-    # 1. Roll: 0 khi ngón giữa chỉ thẳng lên (y ảnh hướng xuống nên dùng -vy)
     roll = np.arctan2(v[:, 0], -v[:, 1])
     roll_feat = np.stack([np.sin(roll), np.cos(roll)], axis=1)
-
-    # 2. Hướng trục ngang (đơn vị hóa)
     h_unit = h / palm_wid[:, None]
 
-    # 3. Diện tích có dấu: dấu cho biết úp/ngửa, độ lớn cho biết mức nghiêng
-    a = idx - wrist
-    b = pinky - wrist
-    cross = a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0]
-    signed_area = cross / (palm_len**2)
-    if is_left:  # tay trái đối xứng gương -> đảo dấu
-        signed_area = -signed_area
-
-    # 4. Tỉ lệ rộng/dài lòng bàn tay
-    aspect = palm_wid / palm_len
-
-    return np.concatenate(
-        [roll_feat, h_unit, signed_area[:, None], aspect[:, None]], axis=1
-    )
+    return np.concatenate([roll_feat, h_unit], axis=1)
 
 
 def slope(x1, y1, x2, y2):  # Line slope given two points:
@@ -276,6 +279,7 @@ def calc_loc_change(hand_data, diff_length=5):
 # trích xuất đặc trưng riel
 
 
+# lấy dữ liệu landmark của bàn tay từ đầu vào (payload), chuyển thành mảng NumPy và chỉ giữ lại tọa độ X, Y
 def _get_hand(payload):
     """
     Trả về:
@@ -291,20 +295,17 @@ def _get_hand(payload):
 
 
 def get_handshape_features(payload):
-    """Handshape: 25 góc + 15 khoảng cách + 10 đầu ngón tương đối cổ tay = 50."""
+    """Handshape: 25 góc + 15 khoảng cách = 40 features."""
     lmrk, _ = _get_hand(payload)
 
     angle = calc_angles_per_frame(lmrk)  # (frames, 25)
     dist = calc_distance_per_frame(lmrk)  # (frames, 15)
 
-    wrist = lmrk[:, 0, :]
-    tips = [lmrk[:, f, :] - wrist for f in [4, 8, 12, 16, 20]]  # 10
-
-    return np.concatenate([angle, dist, *tips], axis=1)
+    return np.concatenate([angle, dist], axis=1)
 
 
 def get_orientation_features(payload):
-    """Orientation: sin/cos roll, hướng trục ngang, diện tích có dấu, tỉ lệ rộng/dài = 6."""
+    """Orientation: sin/cos roll và hướng trục ngang = 4 features."""
     lmrk, is_left = _get_hand(payload)
     return calc_hand_orientation_2d(lmrk, is_left)
 
@@ -316,37 +317,50 @@ def get_location_features(payload):  # bỏ
 
 
 def extract_static_phonological_features(
-    landmarks, frame_width, frame_height, is_left=False
+    landmarks, frame_width=None, frame_height=None, is_left=False
 ):
-    """Extract 58 handshape, orientation, and wrist-location features for one frame.
+    """Extract 46 features from preprocessed (21, 2) or raw (21, 3) landmarks.
 
-    Landmarks are MediaPipe image-normalized coordinates with shape (21, 3).
-    Geometric hand features use pixel coordinates; fingertip offsets and wrist
-    location remain image-normalized, matching the API's previous feature vector.
+    Raw landmarks require frame dimensions. Preprocessed landmarks are already
+    centred and scaled, so their coordinates are used directly.
     """
     landmarks = np.asarray(landmarks, dtype=float)
-    if landmarks.shape != (21, 3) or not np.isfinite(landmarks).all():
-        raise ValueError("landmarks must be a finite array with shape (21, 3)")
-    if frame_width <= 0 or frame_height <= 0:
-        raise ValueError("frame dimensions must be positive")
+    if not np.isfinite(landmarks).all():
+        raise ValueError("landmarks must contain only finite values")
 
-    normalized_xy = landmarks[:, :2]
-    pixels = normalized_xy * np.array([frame_width, frame_height], dtype=float)
-    frame = pixels[np.newaxis, :, :]
+    if landmarks.shape == (21, 2):
+        if frame_width is not None or frame_height is not None:
+            raise ValueError(
+                "frame dimensions must be omitted for preprocessed landmarks"
+            )
+        normalized_xy = landmarks
+        geometry_xy = landmarks
+    elif landmarks.shape == (21, 3):
+        if frame_width is None or frame_height is None:
+            raise ValueError("frame dimensions are required for raw landmarks")
+        if frame_width <= 0 or frame_height <= 0:
+            raise ValueError("frame dimensions must be positive")
+        normalized_xy = landmarks[:, :2]
+        geometry_xy = normalized_xy * np.array(
+            [frame_width, frame_height], dtype=float
+        )
+    else:
+        raise ValueError(
+            "landmarks must be a finite array with shape (21, 2) or (21, 3)"
+        )
+
+    frame = geometry_xy[np.newaxis, :, :]
 
     angles = calc_angles_per_frame(frame)[0]
     distances = calc_distance_per_frame(frame)[0]
     wrist = normalized_xy[0]
-    fingertip_offsets = (
-        normalized_xy[[4, 8, 12, 16, 20]] - wrist
-    ).reshape(-1)
     orientation = calc_hand_orientation_2d(frame, is_left=is_left)[0]
 
-    features = np.concatenate(
-        [angles, distances, fingertip_offsets, orientation, wrist]
-    )
-    if features.shape != (58,):
-        raise RuntimeError(f"Expected 58 static phonological features, got {len(features)}")
+    features = np.concatenate([angles, distances, orientation, wrist])
+    if features.shape != (46,):
+        raise RuntimeError(
+            f"Expected 46 static phonological features, got {len(features)}"
+        )
     return features
 
 
@@ -355,11 +369,7 @@ def combine_features(*feature_blocks):
     return np.concatenate(feature_blocks, axis=1)
 
 
-# Feature extraction to represent phonetics as proposed by Stokoe
-# Gets distances, angles between the hand lmrks and location of wrist and fingertips
-# Together these represent handshape, orientation, location and movement of the sign
-
-# output array 2 chiều (số khung hình, 59) -> 59 = 29 góc, 15 khoảng cách, 2 vị trí cổ tay, 10 vị trí ngón tay, 3 vận tốc
+# Static feature order: 25 angles + 15 distances + 4 orientation + 2 wrist location.
 
 
 def get_static_features(lmrks, key):
@@ -369,17 +379,15 @@ def get_static_features(lmrks, key):
     angle = calc_angles_per_frame(lmrk)  # 25 - handshape
     dist = calc_distance_per_frame(lmrk)  # 15 - handshape
     wrist = lmrk[:, 0, :]  # 2 - location
-    tips = [lmrk[:, f, :] - wrist for f in [4, 8, 12, 16, 20]]  # 10 - orientation
-    orient = calc_hand_orientation_2d(lmrk, is_left)  # 6 - movement
+    orient = calc_hand_orientation_2d(lmrk, is_left)  # 4 - orientation
 
-    return np.concatenate([angle, dist, wrist, *tips, orient], axis=1)  # 58
+    return np.concatenate([angle, dist, orient, wrist], axis=1)  # 46
 
 
 # hàm xử lí chính - bao hàm cả location???
 # input: tay và pose
 def get_wrist_angle_distance(lmrks, key, pose=None):
     lmrk = lmrks[key]  # Get the specified hand
-    left = key == "l_hand"
 
     # Replace the Hand model's fingertip coords if possible with the Pose model
     # Because the Pose model of Mediapipe is more accurate
@@ -404,12 +412,6 @@ def get_wrist_angle_distance(lmrks, key, pose=None):
     # Putting them together for each frame as (angles, distances, wrist)
     features = np.append(angle, dist, axis=1)
     features = np.append(features, wrist, axis=1)
-
-    # Loop over fingertip indices for the middle and ring finger
-    for f in [4, 8, 12, 16, 20]:
-        # Get their position relative to the wrist, then add to the features
-        fingertip = lmrk[:, f, :] - wrist
-        features = np.append(features, fingertip, axis=1)
 
     # Get the velocity and append it as a feature for each frame
     velocity = compute_wrist_velocity(

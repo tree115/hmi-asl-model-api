@@ -6,11 +6,11 @@ from errors.orientation import ORIENTATION_FEATURES
 # Thứ tự ghép khớp với get_handshape_features,
 # get_orientation_features và get_location_features trong feature_extraction.py.
 GROUPS = {
-    "handshape": np.arange(0, 50),  # 25 góc, 15 khoảng cách, 10 tọa độ đầu ngón
-    "orientation": np.arange(50, 56),  # 6 đặc trưng hướng bàn tay
-    "location": np.arange(56, 58),  # tọa độ cổ tay x, y
+    "handshape": np.arange(0, 40),  # 25 góc, 15 khoảng cách
+    "orientation": np.arange(40, 44),  # 4 đặc trưng hướng bàn tay
+    "location": np.arange(44, 46),  # tọa độ cổ tay x, y
 }
-FEATURE_COUNT = 58
+FEATURE_COUNT = 46
 IDX = np.arange(FEATURE_COUNT)
 
 # Trọng số khi gộp điểm tổng; movement chưa được tính.
@@ -20,56 +20,14 @@ WEIGHTS = {"handshape": 0.5, "orientation": 0.2, "location": 0.15}
 # và tọa độ được lấy trực tiếp từ landmarks.
 STD_MIN = np.full(FEATURE_COUNT, 0.05)
 STD_MIN[:25] = 0.02
-STD_MIN[40:50] = 0.02  # tọa độ đầu ngón tương đối với cổ tay
-STD_MIN[56:58] = 0.02  # tọa độ cổ tay
+STD_MIN[44:46] = 0.02  # tọa độ cổ tay
 
 FEATURES = {
     **HANDSHAPE_FEATURES,
-    **{index + 50: feature for index, feature in ORIENTATION_FEATURES.items()},
-    56: {"feature": "wrist_x", "unit": "normalized_coordinate", "scale": 1.0},
-    57: {"feature": "wrist_y", "unit": "normalized_coordinate", "scale": 1.0},
+    **{index + 40: feature for index, feature in ORIENTATION_FEATURES.items()},
+    44: {"feature": "wrist_x", "unit": "normalized_coordinate", "scale": 1.0},
+    45: {"feature": "wrist_y", "unit": "normalized_coordinate", "scale": 1.0},
 }
-
-
-def build_templates(X, y):
-    X = np.asarray(X, dtype=float)
-    y = np.asarray(y)
-    if X.ndim != 2 or X.shape[1] != FEATURE_COUNT:
-        raise ValueError(f"X phải có dạng (số_mẫu, {FEATURE_COUNT})")
-    if y.ndim != 1 or len(y) != len(X):
-        raise ValueError("y phải là vector nhãn có cùng số phần tử với X")
-
-    templates = {}
-    for c in np.unique(y):
-        Xc = X[y == c][:, IDX]
-        Xc = Xc[np.isfinite(Xc).all(axis=1)]
-        if not len(Xc):
-            raise ValueError(f"Không có mẫu hợp lệ cho nhãn {c!r}")
-
-        floor = STD_MIN[IDX]
-        mean, std = Xc.mean(0), np.maximum(Xc.std(0), floor)
-        z = np.abs(Xc - mean) / std
-        Xc = Xc[(z > 3).mean(1) < 0.1]  # lọc nhiễu
-        if not len(Xc):
-            raise ValueError(f"Tất cả mẫu của nhãn {c!r} bị loại khi lọc nhiễu")
-        templates[c] = (Xc.mean(0), np.maximum(Xc.std(0), floor))
-    return templates
-
-
-def save_templates(path, templates):
-    """Persist prebuilt templates for reuse by the API."""
-    if not templates:
-        raise ValueError("templates không được để trống")
-
-    labels = np.asarray(list(templates), dtype=str)
-    means = np.stack([templates[label][0] for label in labels]).astype(float)
-    stds = np.stack([templates[label][1] for label in labels]).astype(float)
-    if means.shape[1:] != (FEATURE_COUNT,) or stds.shape != means.shape:
-        raise ValueError(
-            f"Mỗi template phải chứa mean/std có {FEATURE_COUNT} đặc trưng"
-        )
-
-    np.savez_compressed(path, labels=labels, means=means, stds=stds)
 
 
 def load_templates(path):

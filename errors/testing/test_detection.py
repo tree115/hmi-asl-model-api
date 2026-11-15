@@ -4,12 +4,20 @@ from pathlib import Path
 
 import numpy as np
 
-from errors.error_detection_4params import FEATURE_COUNT, build_templates, main
+from errors.error_detection_static import FEATURE_COUNT, GROUPS, main
+from errors.handshape import HANDSHAPE_FEATURES
+from errors.orientation import ORIENTATION_FEATURES
 from features import feature_extraction as fe
 
 
 class ErrorDetectionTests(unittest.TestCase):
     def setUp(self):
+        self.assertEqual(len(HANDSHAPE_FEATURES), 40)
+        self.assertEqual(len(ORIENTATION_FEATURES), 4)
+        np.testing.assert_array_equal(GROUPS["handshape"], np.arange(0, 40))
+        np.testing.assert_array_equal(GROUPS["orientation"], np.arange(40, 44))
+        np.testing.assert_array_equal(GROUPS["location"], np.arange(44, 46))
+
         fixture_path = (
             Path(__file__).parents[2] / "features" / "testing" / "fixtures" / "A_example.json"
         )
@@ -23,28 +31,12 @@ class ErrorDetectionTests(unittest.TestCase):
 
         # Synthetic reference data for exercising detection; replace with real
         # labeled reference samples before interpreting the result as ASL feedback.
-        self.base = np.array(
-            [
-                0.86, 0.73, 0.01, 0.11, 0.06, 0.09, 0.08,
-                0.12, 0.15, 0.18, 0.21, 0.24, 0.27, 0.30,
-                0.33, 0.36, 0.39, 0.42, 0.45, 0.48, 0.51,
-                0.54, 0.57, 0.60, 0.63, 0.66, 0.69, 0.72,
-                0.75, 0.78, 0.81, 0.84, 0.87, 0.90, 0.93,
-                0.96, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45,
-                0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80,
-                0.85, 0.90, 0.95, 0.12, 0.18, 0.24, 0.30,
-                0.36, 0.42,
-            ],
-            dtype=float,
-        )
+        self.base = np.linspace(0.1, 0.9, FEATURE_COUNT)
         self.assertEqual(self.base.shape, (FEATURE_COUNT,))
 
-        rng = np.random.default_rng(42)
-        reference_samples = self.base + rng.normal(
-            loc=0.0, scale=0.008, size=(20, FEATURE_COUNT)
-        )
-        labels = np.array(["A"] * len(reference_samples))
-        self.templates = build_templates(reference_samples, labels)
+        self.templates = {
+            "A": (self.base, np.full(FEATURE_COUNT, 0.008, dtype=float))
+        }
 
     def test_a_example_landmarks_produce_json_error_detection_output(self):
         result = main(self.actual_features, self.payload["target_label"], self.templates)

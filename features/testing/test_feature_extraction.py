@@ -30,7 +30,7 @@ class StaticPhonologicalFeatureTests(unittest.TestCase):
         for i, value in enumerate(features):
             print(f"Feature [{i:02d}]: {value:.6f}")
 
-        self.assertEqual(features.shape, (58,))
+        self.assertEqual(features.shape, (46,))
         self.assertTrue(np.isfinite(features).all())
 
         xy = self.landmarks[:, :2]
@@ -42,7 +42,6 @@ class StaticPhonologicalFeatureTests(unittest.TestCase):
             [
                 fe.calc_angles_per_frame(frame)[0],
                 fe.calc_distance_per_frame(frame)[0],
-                (xy[[4, 8, 12, 16, 20]] - xy[0]).reshape(-1),
                 fe.calc_hand_orientation_2d(frame)[0],
                 xy[0],
             ]
@@ -62,15 +61,42 @@ class StaticPhonologicalFeatureTests(unittest.TestCase):
         )
 
         print("\n========== HAND ORIENTATION ==========")
-        print(f"Right hand orientation: {right_features[54]:.6f}")
-        print(f"Left hand orientation:  {left_features[54]:.6f}")
-        print(f"Difference: {right_features[54] - left_features[54]:.6f}")
+        print(f"Right hand orientation: {right_features[40:44]}")
+        print(f"Left hand orientation:  {left_features[40:44]}")
 
-        np.testing.assert_allclose(right_features[:54], left_features[:54])
-        self.assertAlmostEqual(right_features[54], -left_features[54])
-        np.testing.assert_allclose(right_features[55:], left_features[55:])
+        np.testing.assert_allclose(right_features, left_features)
 
         print("Left/right orientation: PASSED")
+
+    def test_static_feature_matrix_uses_the_same_46_feature_order(self):
+        frame = self.landmarks[np.newaxis, :, :2]
+        features = fe.get_static_features({"r_hand": frame}, "r_hand")
+
+        self.assertEqual(features.shape, (1, 46))
+        expected = np.concatenate(
+            [
+                fe.calc_angles_per_frame(frame),
+                fe.calc_distance_per_frame(frame),
+                fe.calc_hand_orientation_2d(frame),
+                frame[:, 0, :],
+            ],
+            axis=1,
+        )
+        np.testing.assert_allclose(features, expected)
+
+    def test_preprocess_then_extract_returns_the_46_feature_vector(self):
+        normalized_landmarks = fe.preprocess_hand(
+            self.landmarks, self.width, self.height
+        )
+        features = fe.extract_static_phonological_features(normalized_landmarks)
+        raw_features = fe.extract_static_phonological_features(
+            self.landmarks, self.width, self.height
+        )
+
+        self.assertEqual(normalized_landmarks.shape, (21, 2))
+        self.assertEqual(features.shape, (46,))
+        self.assertTrue(np.isfinite(features).all())
+        np.testing.assert_allclose(features[:44], raw_features[:44], atol=1e-6)
 
     def test_rejects_invalid_landmarks_or_frame_dimensions(self):
         print("\n========== INVALID INPUT TESTS ==========")

@@ -21,17 +21,7 @@ ORIENTATION_FEATURES = {
         "unit": "unitless",
         "scale": 1.0,
     },
-    4: {
-        "feature": "palm_signed_area",
-        "unit": "unitless",
-        "scale": 1.0,
-    },
-    5: {
-        "feature": "palm_width_to_length_ratio",
-        "unit": "ratio",
-        "scale": 1.0,
-    },
 }
 
-if tuple(ORIENTATION_FEATURES) != tuple(range(6)):
-    raise RuntimeError("Orientation feature metadata must describe indices 0..5")
+if tuple(ORIENTATION_FEATURES) != tuple(range(4)):
+    raise RuntimeError("Orientation feature metadata must describe indices 0..3")

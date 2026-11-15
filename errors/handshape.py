@@ -1,7 +1,6 @@
 """Names and units for the handshape features from feature_extraction.py."""
 
-FINGERS = ("thumb", "index", "middle", "ring", "pinky")
-
+# 25 góc khớp ngón tay/ ngón tay
 _ANGLE_FEATURES = (
     ("thumb_mcp_angle", "thumb"),
     ("thumb_base_angle", "thumb"),
@@ -30,6 +29,7 @@ _ANGLE_FEATURES = (
     ("index_pinky_angle", "index_pinky"),
 )
 
+# khoảng cách cổ tay + đầu ngón + giữa đầu ngón
 _DISTANCE_PAIRS = (
     ("wrist", "thumb"),
     ("wrist", "index"),
@@ -65,15 +65,5 @@ for index, (first, second) in enumerate(_DISTANCE_PAIRS, start=25):
         "scale": 1.0,
     }
 
-for finger_index, finger in enumerate(FINGERS):
-    for axis_index, axis in enumerate(("x", "y")):
-        index = 40 + finger_index * 2 + axis_index
-        HANDSHAPE_FEATURES[index] = {
-            "feature": f"{finger}_tip_relative_{axis}",
-            "finger": finger,
-            "unit": "normalized_coordinate",
-            "scale": 1.0,
-        }
-
-if len(HANDSHAPE_FEATURES) != 50:
-    raise RuntimeError("Handshape feature metadata must describe all 50 features")
+if len(HANDSHAPE_FEATURES) != 40:
+    raise RuntimeError("Handshape feature metadata must describe all 40 features")

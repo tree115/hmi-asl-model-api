@@ -13,7 +13,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from errors.error_detection_4params import (
+from errors.error_detection_static import (
+    FEATURE_COUNT,
     load_templates,
     main as detect_feature_errors,
 )
@@ -285,13 +286,19 @@ class Engine:  # khởi tạo mô hình nhận diện chữ cái bằng o
 class Features:
     def feature_extract(payload: LandmarkRequest):
         if payload.landmarks is None:
-            return np.full(58, np.nan, dtype=float)
-
-        return fe.extract_static_phonological_features(
-            payload.landmarks,
-            payload.image_width,
-            payload.image_height,
-        )
+            return np.full(FEATURE_COUNT, np.nan, dtype=float)
+        try:
+            normalized_landmarks = fe.preprocess_hand(
+                payload.landmarks,
+                payload.image_width,
+                payload.image_height,
+            )
+            return fe.extract_static_phonological_features(normalized_landmarks)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "invalid_landmarks", "message": str(exc)},
+            ) from exc
 
 
 class Error:
@@ -333,7 +340,9 @@ class Error:
             )
 
         try:
-            templates = Error._load_templates(str(path.resolve()), path.stat().st_mtime_ns)
+            templates = Error._load_templates(
+                str(path.resolve()), path.stat().st_mtime_ns
+            )
         except ValueError as exc:
             raise HTTPException(
                 status_code=500,
