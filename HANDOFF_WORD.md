@@ -1,4 +1,4 @@
-# Bàn giao GestureSign cho bài luyện từ ASL
+# Bàn giao word_model cho bài luyện từ ASL
 
 Chạy AI Server bằng `./setup.ps1` và `./start-ai.ps1`. Model GestureSign được nạp từ `models/gesturesign/` cùng lúc với model chữ cái. Swagger ở `http://127.0.0.1:8001/docs`.
 
@@ -41,9 +41,3 @@ Truyền `null` cho phần hoặc điểm mất dấu. Giữ thứ tự frame v�
 | HTTP 422 hoặc lỗi kết nối | Báo không gửi được lượt, cho thử lại |
 
 `score` và `model_confidence` là độ tin cậy của nhãn đã được chấp nhận. `top3` dành cho kiểm thử. `diagnosis_supported` là `false`. Tránh gắn nhãn lỗi hình tay, vị trí hay chuyển động từ dự đoán này.
-
-## Phiên bản và kiểm thử
-
-Checkpoint GestureSign `default-2fc9038cc4` và tiền xử lý phiên bản 2 đến từ [GestureSign](https://github.com/shashank11yadav/GestureSign/tree/ffc0578e68449676b6e9545da82092679914e8c8). Giấy phép MIT đi cùng mã và model. Model phân loại từng ký hiệu riêng lẻ. Danh sách đầy đủ có trong `models/gesturesign/labels.json`.
-
-Chạy `python -m scripts.check_word` trong môi trường AI. Mẫu `hello` trích từ [replay công khai của GestureSign](https://github.com/shashank11yadav/GestureSign/blob/ffc0578e68449676b6e9545da82092679914e8c8/web/public/replay/clips.json), nguồn Google Isolated Sign Language Recognition (Kaggle asl-signs, CC BY 4.0). Mẫu đã chuyển sang định dạng request và thêm Z bằng 0 vì bản replay chỉ lưu X/Y và tiền xử lý chỉ dùng X/Y. Đây là kiểm tra tích hợp API trên một mẫu thực tế đã công bố. Độ chính xác trên webcam của nhóm còn cần đo riêng.
