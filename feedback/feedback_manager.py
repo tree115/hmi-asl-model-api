@@ -36,8 +36,12 @@ def evaluate_attempt(
     initial_levels=None,
     max_feedbacks=None,
     generator=generate_feedback,
+    component_results=None,
 ):
     """Xử lý một lượt thử. Không sửa history truyền vào.
+
+    component_results: truyền vào để ghi đè kết luận đúng/sai suy từ detection
+    (ví dụ khi classifier đã xác nhận đúng chữ mục tiêu).
 
     Trả về dict gồm status, results, feedbacks, needs_review và history
     (lịch sử mới để lưu lại cho lượt sau).
@@ -46,7 +50,8 @@ def evaluate_attempt(
         raise ValueError(f"mode phải là một trong {MODES}, nhận {mode!r}")
     history = history or {}
 
-    component_results = component_results_from_detection(detection)
+    if component_results is None:
+        component_results = component_results_from_detection(detection)
     if not component_results:
         reasons = (detection or {}).get("errors") or ["not_evaluated"]
         return {

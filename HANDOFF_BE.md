@@ -16,6 +16,12 @@ Gửi cả gói này, không chỉ file ONNX. `.venv`, cache, secrets và báo c
 được Git bỏ qua. Nghiên cứu/demo/model cũ đã được chuyển ra ngoài thư mục dự án.
 Repo FE hmi-asl-app vẫn độc lập và không bị gộp vào đây.
 
+## Feedback (mới)
+
+`POST /api/v1/ai/feedback` trả nhận diện + lỗi theo thành phần + Feedback cấp 1, kèm `errors[]`
+đúng schema `AttemptErrorItem` của BE. Hướng dẫn nối và **danh sách việc FE/BE cần sửa** ở
+[HANDOFF_FEEDBACK.md](HANDOFF_FEEDBACK.md#việc-cần-sửa-khi-nối-gửi-befe).
+
 ## Khởi chạy và nối BE
 
 Chạy `./setup.ps1`, `./start-ai.ps1`; mặc định 127.0.0.1:8001.

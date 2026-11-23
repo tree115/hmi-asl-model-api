@@ -49,8 +49,17 @@ def create_ai_router():
             "POST", "/api/v1/ai/errors/detect", json=await request.json()
         )
 
-    # BE nên tự gắn history đã lưu của (người học, chữ, phiên) vào body trước khi
-    # gửi, rồi lưu lại response["history"]; proxy này chỉ chuyển tiếp nguyên body.
+    @router.get("/words/capabilities")
+    async def word_capabilities():
+        return await forward("GET", "/api/v1/ai/words/capabilities")
+
+    @router.post("/predict/word")
+    async def word(request: Request):
+        return await forward("POST", "/api/v1/ai/predict/word", json=await request.json())
+
+    # Body giống /predict/attempt + mode + history. Bên giữ history (hiện là FE,
+    # theo phương án B) gửi history của lượt trước và lưu lại response["history"].
+    # Không thêm trường nào khác: AI chỉ nhận đúng schema trong openapi.json.
     @router.post("/feedback")
     async def feedback(request: Request):
         return await forward("POST", "/api/v1/ai/feedback", json=await request.json())

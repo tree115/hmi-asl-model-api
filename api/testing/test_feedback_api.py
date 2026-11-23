@@ -2,10 +2,12 @@
 
 Chạy: python -m unittest api.testing.test_feedback_api -v
 
-Mẫu chuẩn được dựng từ chính fixture chữ A, nên:
-- target A  -> không lệch -> "correct"
-- target B  -> giống A nhưng góc PIP ngón trỏ lớn hơn 54° -> lỗi H, gợi ý duỗi ngón trỏ
-Như vậy test chỉ kiểm tra luồng API, không phụ thuộc chất lượng mẫu chuẩn thật.
+Mẫu chuẩn được dựng từ chính fixture chữ A (classifier nhận ra là A), nên:
+- target A -> classifier đúng -> "correct"
+- target B -> classifier ra A (sai) + mẫu chuẩn B giống A nhưng góc PIP ngón trỏ
+  lớn hơn 54° -> lỗi H từ so sánh đặc trưng, gợi ý duỗi ngón trỏ
+- target C -> classifier sai, không có mẫu chuẩn C -> lỗi H chỉ từ classifier
+Test kiểm tra luồng API, không phụ thuộc chất lượng mẫu chuẩn thật.
 """
 
 import json
@@ -15,11 +17,13 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.main import app
 from errors.templates import save_templates
 from features import feature_extraction as fe
+from integration.backend_proxy import create_ai_router
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads(
@@ -33,6 +37,21 @@ def fixture_features():
         FIXTURE["landmarks"], FIXTURE["image_width"], FIXTURE["image_height"]
     )
     return fe.extract_static_phonological_features(normalized)
+
+
+def attempt_body(target, frames=15, landmarks="fixture", **extra):
+    lms = FIXTURE["landmarks"] if landmarks == "fixture" else landmarks
+    return {
+        "client_attempt_id": "test-1",
+        "target_label": target,
+        "image_width": FIXTURE["image_width"],
+        "image_height": FIXTURE["image_height"],
+        "frames": [
+            {"handedness": "Right", "timestamp_ms": i * 80, "landmarks": lms}
+            for i in range(frames)
+        ],
+        **extra,
+    }
 
 
 class FeedbackApiTests(unittest.TestCase):
@@ -59,10 +78,12 @@ class FeedbackApiTests(unittest.TestCase):
             os.environ["AI_ERROR_TEMPLATE_DATA"] = cls.old_env
         cls.tmp.cleanup()
 
-    def post_feedback(self, target="B", **extra):
-        body = dict(FIXTURE, target_label=target, **extra)
-        return self.client.post("/api/v1/ai/feedback", json=body)
+    def post(self, target="B", **extra):
+        r = self.client.post("/api/v1/ai/feedback", json=attempt_body(target, **extra))
+        self.assertEqual(r.status_code, 200, r.text)
+        return r.json()
 
+    # ---- capabilities / routes ----
     def test_capabilities_advertise_feedback(self):
         caps = self.client.get("/api/v1/ai/capabilities").json()
         self.assertEqual(caps["feedback_endpoint"], "/api/v1/ai/feedback")
@@ -72,63 +93,97 @@ class FeedbackApiTests(unittest.TestCase):
     def test_word_endpoint_present_after_merge(self):
         self.assertEqual(self.client.post("/api/v1/ai/predict/word", json={}).status_code, 422)
 
+    def test_backend_proxy_exposes_all_ai_routes(self):
+        backend = FastAPI()
+        backend.include_router(create_ai_router())
+        paths = backend.openapi()["paths"]
+        for path in (
+            "/api/v1/ai/feedback",
+            "/api/v1/ai/errors/detect",
+            "/api/v1/ai/predict/attempt",
+            "/api/v1/ai/predict/word",
+            "/api/v1/ai/words/capabilities",
+        ):
+            self.assertIn(path, paths)
+
+    # ---- /errors/detect (một khung hình) ----
     def test_detect_reports_status_and_uppercases_target(self):
         r = self.client.post("/api/v1/ai/errors/detect", json=dict(FIXTURE, target_label="a"))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["target_label"], "A")
         self.assertEqual(r.json()["status"], "evaluated")
 
+    # ---- /feedback ----
     def test_correct_attempt(self):
-        r = self.post_feedback("A")
-        self.assertEqual(r.status_code, 200)
-        body = r.json()
+        body = self.post("a")
         self.assertEqual(body["status"], "correct")
+        self.assertTrue(body["is_correct"])
+        self.assertEqual(body["recognition"]["predicted_label"], "A")
         self.assertEqual(body["feedbacks"], [])
+        self.assertEqual(body["errors"], [])
+        self.assertIsNone(body["feedback_level"])
         self.assertEqual(body["history"]["H"]["last_result"], "correct")
 
-    def test_wrong_attempt_gives_level1_hint(self):
-        body = self.post_feedback("b").json()
+    def test_wrong_attempt_with_feature_diagnosis(self):
+        body = self.post("b")
         self.assertEqual(body["status"], "has_errors")
-        self.assertEqual(body["target_label"], "B")
+        self.assertFalse(body["is_correct"])
+        self.assertEqual(body["diagnosis_source"], "feature_templates")
         fb = body["feedbacks"][0]
-        self.assertEqual((fb["component"], fb["level"]), ("H", 1))
-        self.assertEqual(fb["message"], "Hình dạng bàn tay của bạn chưa giống mẫu.")
+        self.assertEqual((fb["component"], fb["error_type"], fb["level"]), ("H", "handshape", 1))
         self.assertEqual(fb["hint"], "Hãy duỗi ngón trỏ thẳng hơn.")
+        self.assertEqual(body["feedback_level"], 1)
+        err = body["errors"][0]
+        self.assertEqual(err["type"], "handshape")
+        self.assertIn(err["severity"], ("low", "medium", "high"))
+
+    def test_wrong_attempt_without_template_uses_classifier(self):
+        body = self.post("C")
+        self.assertEqual(body["diagnosis_source"], "classifier_only")
+        self.assertEqual(body["results"], {"H": "wrong"})
+        self.assertEqual(body["feedbacks"][0]["hint_source"], "sign_library")
 
     def test_history_round_trip_escalates_only_in_adaptive(self):
         for mode, expected in (("adaptive", [1, 1, 2]), ("fixed", [1, 1, 1])):
             history, levels = {}, []
             for _ in range(3):
-                body = self.post_feedback("B", mode=mode, history=history).json()
-                levels.append(body["feedbacks"][0]["level"])
+                body = self.post("B", mode=mode, history=history)
+                levels.append(body["feedback_level"])
                 history = body["history"]
             self.assertEqual(levels, expected, mode)
 
     def test_not_evaluated_cases_keep_history(self):
-        history = self.post_feedback("B").json()["history"]
+        history = self.post("B")["history"]
         for target, extra, reason in (
-            ("J", {}, "unsupported_target"),
+            ("HELLO", {}, "unsupported_target"),
             ("B", {"landmarks": None}, "no_hand"),
         ):
-            body = self.post_feedback(target, history=history, **extra).json()
+            body = self.post(target, history=history, **extra)
             self.assertEqual(body["status"], "not_evaluated")
             self.assertEqual(body["reason"], reason)
+            self.assertIsNone(body["is_correct"])
+            self.assertEqual(body["errors"], [])
             self.assertEqual(body["history"], history)
 
-    def test_invalid_history_rejected(self):
-        r = self.post_feedback("B", history={"H": {"level": 5}})
-        self.assertEqual(r.status_code, 422)
-        r = self.post_feedback("B", history={"X": {}})
-        self.assertEqual(r.status_code, 422)
-
-    def test_missing_template_returns_503(self):
-        saved = os.environ.pop("AI_ERROR_TEMPLATE_DATA")
+    def test_missing_template_falls_back_to_classifier(self):
+        saved = os.environ["AI_ERROR_TEMPLATE_DATA"]
+        os.environ["AI_ERROR_TEMPLATE_DATA"] = str(Path(self.tmp.name) / "missing.npz")
         try:
-            r = self.post_feedback("B")
-            self.assertEqual(r.status_code, 503)
-            self.assertEqual(r.json()["detail"]["code"], "template_data_unavailable")
+            body = self.post("B")
+            self.assertEqual(body["diagnosis_source"], "classifier_only")
+            self.assertEqual(body["status"], "has_errors")
+            self.assertEqual(self.post("A")["status"], "correct")
         finally:
             os.environ["AI_ERROR_TEMPLATE_DATA"] = saved
+
+    def test_invalid_requests_rejected(self):
+        for body in (
+            attempt_body("B", history={"H": {"level": 5}}),
+            attempt_body("B", history={"X": {}}),
+            attempt_body("B", mode="other"),
+            attempt_body("B", frames=2),
+        ):
+            self.assertEqual(self.client.post("/api/v1/ai/feedback", json=body).status_code, 422)
 
 
 if __name__ == "__main__":

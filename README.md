@@ -23,7 +23,7 @@ Swagger: http://127.0.0.1:8001/docs. Chi tiết: [HANDOFF_BE.md](HANDOFF_BE.md).
 - `GET /api/v1/ai/capabilities`
 - `POST /api/v1/ai/predict/landmarks`: 21 điểm của một khung hình.
 - `POST /api/v1/ai/errors/detect`: so sánh đặc trưng với mẫu chuẩn nếu đã cấu hình.
-- `POST /api/v1/ai/feedback`: phát hiện lỗi + Feedback cấp 1 theo lịch sử lỗi (BE lưu lịch sử). Xem [HANDOFF_FEEDBACK.md](HANDOFF_FEEDBACK.md).
+- `POST /api/v1/ai/feedback`: nhận diện + phát hiện thành phần sai + Feedback cấp 1 theo lịch sử lỗi, trả `errors` đúng schema BE. Xem [HANDOFF_FEEDBACK.md](HANDOFF_FEEDBACK.md).
 - `POST /api/v1/ai/predict/attempt`: một chuỗi 21 điểm theo thời gian.
 
 MediaPipe chạy ở FE; FE/BE gửi landmark gốc, không gửi ảnh/video vào gói này.

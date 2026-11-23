@@ -19,7 +19,14 @@ from errors.error_detection_static import (
     main as detect_feature_errors,
 )
 from features import feature_extraction as fe
+from feedback.feedback_generation import (
+    COMPONENT_TO_GROUP,
+    component_results_from_detection,
+    error_infos_from_detection,
+)
 from feedback.feedback_manager import evaluate_attempt
+
+FEEDBACK_VERSION = "feedback-l1-v1"
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
@@ -321,7 +328,11 @@ class Error:
                 "errors": ["no_hand"],
             }
 
-        template_path = os.environ.get("AI_ERROR_TEMPLATE_DATA")
+        # Mặc định dùng mẫu chuẩn đi kèm repo; đặt AI_ERROR_TEMPLATE_DATA để thay.
+        default_path = Path(__file__).resolve().parents[1] / "data/error_templates.npz"
+        template_path = os.environ.get("AI_ERROR_TEMPLATE_DATA") or (
+            str(default_path) if default_path.is_file() else None
+        )
         if not template_path:
             raise HTTPException(
                 status_code=503,
@@ -522,38 +533,214 @@ class ComponentHistory(BaseModel):
     needs_review: bool = False
 
 
-class FeedbackRequest(LandmarkRequest):
+class FeedbackRequest(AttemptRequest):
+    """Cùng body với /predict/attempt, thêm mode + history."""
+
     mode: Literal["fixed", "adaptive"] = "adaptive"
     history: dict[Literal["H", "L", "O", "M"], ComponentHistory] = Field(
         default_factory=dict,
         description=(
-            "Lịch sử của đúng (người học, chữ mục tiêu, phiên) do lượt trước "
-            "trả về trong trường history; gửi {} cho lượt đầu tiên."
+            "Lịch sử của đúng (người học, ký hiệu, phiên) do lượt trước trả về "
+            "trong trường history; gửi {} cho lượt đầu tiên của phiên."
         ),
     )
     max_feedbacks: int | None = Field(default=None, ge=1, le=4)
 
 
-# Lịch sử do BE lưu: AI Server không giữ trạng thái giữa các request.
-@app.post("/api/v1/ai/feedback", response_model=dict)
+class RecognitionSummary(BaseModel):
+    status: Literal[
+        "recognized", "uncertain", "no_hand", "invalid_landmarks", "unsupported_target"
+    ]
+    predicted_label: str | None = None
+    matches_target: bool | None = None
+    model_confidence: float | None = None
+    stability: float | None = None
+    model_version: str
+    recognition_method: str
+
+
+class FeedbackItem(BaseModel):
+    component: Literal["H", "L", "O", "M"]
+    error_type: Literal["handshape", "location", "orientation", "movement"]
+    level: int = Field(ge=1, le=3)
+    message: str
+    hint: str
+    hint_source: Literal["deviation", "sign_library", "generic"]
+    details: dict | None = None
+    visual: dict | None = None
+    steps: list | None = None
+
+
+class BackendAttemptError(BaseModel):
+    """Đúng schema AttemptErrorItem của BE (POST /api/v1/attempts -> errors[])."""
+
+    type: Literal["handshape", "location", "orientation", "movement"]
+    severity: Literal["low", "medium", "high"]
+    details: str | None = None
+
+
+class FeedbackResponse(BaseModel):
+    request_id: str
+    client_attempt_id: str
+    target_label: str
+    mode: Literal["fixed", "adaptive"]
+    status: Literal["correct", "has_errors", "not_evaluated"]
+    reason: str | None = Field(
+        default=None,
+        description="Khi not_evaluated: uncertain | no_hand | invalid_landmarks | unsupported_target",
+    )
+    is_correct: bool | None = None
+    recognition: RecognitionSummary
+    diagnosis_source: Literal[
+        "feature_templates", "classifier_only", "none"
+    ] = Field(
+        description=(
+            "feature_templates: thành phần sai lấy từ so sánh đặc trưng với mẫu chuẩn; "
+            "classifier_only: chưa so được đặc trưng (J/Z hoặc thiếu mẫu chuẩn), "
+            "chỉ biết classifier nhận ra chữ khác"
+        )
+    )
+    results: dict[str, Literal["correct", "wrong"]]
+    feedbacks: list[FeedbackItem]
+    feedback_level: int | None = Field(
+        default=None, description="Cấp của feedback ưu tiên; gửi BE làm client_feedback_level"
+    )
+    errors: list[BackendAttemptError] = Field(
+        description="Gửi nguyên vào errors[] của POST /api/v1/attempts (BE)"
+    )
+    needs_review: list[str]
+    history: dict
+    detection: dict | None = None
+    feedback_version: str = FEEDBACK_VERSION
+
+
+def _median_features(payload: AttemptRequest):
+    """Trung vị đặc trưng 46 chiều trên các frame có tay; None nếu không frame nào dùng được."""
+    rows = []
+    for frame in payload.frames:
+        if frame.landmarks is None:
+            continue
+        try:
+            normalized = fe.preprocess_hand(
+                frame.landmarks, payload.image_width, payload.image_height
+            )
+            rows.append(fe.extract_static_phonological_features(normalized))
+        except ValueError:
+            continue
+    return np.median(np.asarray(rows), axis=0) if rows else None
+
+
+def _severity(component, info):
+    devs = (info or {}).get("deviations") or []
+    z = abs(devs[0].get("z_score", 0)) if devs else 0
+    if not devs or z >= 4:
+        return "high"
+    return "medium" if z >= 3 else "low"
+
+
+# Ai gọi: FE (phương án B) gọi thay cho /predict/attempt, giữ history theo
+# (người học, ký hiệu, phiên), rồi gửi errors + feedback_level sang BE /attempts.
+# AI Server không lưu trạng thái giữa các request.
+@app.post("/api/v1/ai/feedback", response_model=FeedbackResponse)
 def feedback(payload: FeedbackRequest):
-    target, detection = run_error_detection(payload)
+    engine = app.state.engine
+    target = payload.target_label.strip().upper()
     history = {k: v.model_dump() for k, v in payload.history.items()}
+    recog = engine.attempt(payload)
+    recognition = RecognitionSummary(
+        status=recog.status,
+        predicted_label=recog.predicted_label,
+        matches_target=recog.matches_target,
+        model_confidence=recog.model_confidence,
+        stability=recog.stability,
+        model_version=recog.model_version,
+        recognition_method=recog.recognition_method,
+    )
+    base = {
+        "request_id": str(uuid4()),
+        "client_attempt_id": payload.client_attempt_id,
+        "target_label": target,
+        "mode": payload.mode,
+        "recognition": recognition,
+    }
+
+    # Lượt không chấm được: không tính đúng/sai, không đổi lịch sử (báo cáo 4.2.3).
+    if recog.status != "recognized":
+        return FeedbackResponse(
+            **base, status="not_evaluated", reason=recog.status, is_correct=None,
+            diagnosis_source="none", results={}, feedbacks=[], feedback_level=None,
+            errors=[], needs_review=[], history=history,
+        )
+
+    dynamic = target in {"J", "Z"}
+    components = ("H", "M") if dynamic else ("H", "O", "L")
+    detection = None
+    if not dynamic:
+        features = _median_features(payload)
+        if features is not None:
+            try:
+                detection = Error.error_detection(features, target)
+            except HTTPException:
+                # Thiếu/hỏng file mẫu chuẩn hoặc chưa có mẫu cho chữ này:
+                # vẫn trả feedback dựa trên classifier thay vì làm hỏng lượt chấm.
+                detection = None
+
+    if recog.matches_target:
+        # Classifier xác nhận đúng chữ: coi mọi thành phần là đúng, bỏ qua các
+        # sai lệch đặc trưng (detection hiện còn báo nhầm nhiều).
+        component_results = {c: True for c in components}
+        source = "feature_templates" if detection else "classifier_only"
+    else:
+        derived = component_results_from_detection(detection) if detection else {}
+        if derived and not all(derived.values()):
+            component_results, source = derived, "feature_templates"
+        else:
+            # Classifier nhận ra chữ khác nhưng đặc trưng không chỉ ra thành phần
+            # nào: mặc định hình dạng tay (J/Z: chuyển động nếu hình tay đã qua).
+            shape_ok = bool(
+                dynamic
+                and (recog.motion_details or {}).get("handshape_assessed")
+                and (recog.motion_details or {}).get("shape_gate_passed", {}).get(target)
+            )
+            component_results = {"M": False} if shape_ok else {"H": False}
+            source = "classifier_only"
+
     out = evaluate_attempt(
         history,
         target,
-        detection,
+        detection if source == "feature_templates" else None,
         mode=payload.mode,
-        version="V1",
+        version="V2" if dynamic else "V1",
         max_feedbacks=payload.max_feedbacks,
+        component_results=component_results,
     )
-    return {
-        "request_id": str(uuid4()),
-        "target_label": target,
-        "mode": payload.mode,
-        **out,
-        "detection": detection,
-    }
+    infos = error_infos_from_detection(detection) if source == "feature_templates" else {}
+    feedbacks = [
+        FeedbackItem(**fb, error_type=COMPONENT_TO_GROUP[fb["component"]])
+        for fb in out["feedbacks"]
+    ]
+    errors = [
+        BackendAttemptError(
+            type=fb.error_type,
+            severity=_severity(fb.component, infos.get(fb.component)),
+            details=f"L{fb.level}: {fb.message} {fb.hint}",
+        )
+        for fb in feedbacks
+    ]
+    return FeedbackResponse(
+        **base,
+        status=out["status"],
+        reason=None,
+        is_correct=bool(recog.matches_target),
+        diagnosis_source=source,
+        results=out["results"],
+        feedbacks=feedbacks,
+        feedback_level=feedbacks[0].level if feedbacks else None,
+        errors=errors,
+        needs_review=out["needs_review"],
+        history=out["history"],
+        detection=detection,
+    )
 
 
 # riêng cho J/Z
