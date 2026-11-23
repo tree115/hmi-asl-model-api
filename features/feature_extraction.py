@@ -1,9 +1,17 @@
 import numpy as np
 import math
-import mediapipe as mp
-from scipy.spatial.distance import cdist
 
-mp_hands = mp.solutions.hands
+# Chỉ số landmark MediaPipe Hands (cố định theo tài liệu MediaPipe).
+# Không import mediapipe ở server: MediaPipe chạy ở FE, server chỉ nhận landmark.
+WRIST = 0
+MIDDLE_FINGER_MCP = 9
+
+
+def cdist(a, b):
+    """Khoảng cách Euclid giữa mọi cặp điểm (thay scipy.spatial.distance.cdist)."""
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    return np.sqrt(((a[:, None, :] - b[None, :, :]) ** 2).sum(axis=-1))
 
 from models.onnx_alphabet import preprocessing as pre
 
@@ -69,8 +77,8 @@ def angle_between(start, mid, end):
 def calc_hand_distance(hand_data, selection=True):
     # khoang cách giữa các điểm trên bàn tay, biến đổi vị trí thành đặc trưng số
     # Getting the wrist, palm indices from the mediapipe pose model
-    wrist_ind = mp_hands.HandLandmark.WRIST.value
-    palm_ind = mp_hands.HandLandmark.MIDDLE_FINGER_MCP.value
+    wrist_ind = WRIST
+    palm_ind = MIDDLE_FINGER_MCP
     x1, y1 = hand_data[wrist_ind]
     x2, y2 = hand_data[palm_ind]
     palm_size = get_distance(x1, y1, x2, y2)

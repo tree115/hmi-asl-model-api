@@ -23,9 +23,6 @@ below is MediaPipe's own hand styling, transcribed so the drawing does not depen
 API that version 1.0 removed.
 """
 
-# chuẩn hóa dữ liệu bàn tay r đưa vào model
-# nhận landmark được phát hiện -> biến thành ảnh xương bàn tay
-# đưa tọa độ pixel thẳng vào model, các giá trị sẽ khác nhau dù tư thế bàn tay giống nhau -> chuẩn hóa thành khoảng [0,1]
 import cv2
 import numpy as np
 
@@ -59,59 +56,25 @@ _WHITE_RGB = (224, 224, 224)
 # tuples to RGB. Values are (colour, circle_radius) and (colour, thickness), sized for
 # a REFERENCE_CANVAS-wide canvas and scaled by `_scaled()`.
 _RED, _PEACH, _PURPLE = (255, 48, 48), (255, 229, 180), (128, 64, 128)
-_YELLOW, _GREEN, _BLUE, _GRAY = (
-    (255, 204, 0),
-    (48, 255, 48),
-    (21, 101, 192),
-    (128, 128, 128),
-)
+_YELLOW, _GREEN, _BLUE, _GRAY = (255, 204, 0), (48, 255, 48), (21, 101, 192), (128, 128, 128)
 
 _LANDMARK_STYLE = {
-    0: (_RED, 5),
-    1: (_RED, 5),
-    5: (_RED, 5),
-    9: (_RED, 5),
-    13: (_RED, 5),
-    17: (_RED, 5),
-    2: (_PEACH, 5),
-    3: (_PEACH, 5),
-    4: (_PEACH, 5),
-    6: (_PURPLE, 5),
-    7: (_PURPLE, 5),
-    8: (_PURPLE, 5),
-    10: (_YELLOW, 5),
-    11: (_YELLOW, 5),
-    12: (_YELLOW, 5),
-    14: (_GREEN, 5),
-    15: (_GREEN, 5),
-    16: (_GREEN, 5),
-    18: (_BLUE, 5),
-    19: (_BLUE, 5),
-    20: (_BLUE, 5),
+    0: (_RED, 5), 1: (_RED, 5), 5: (_RED, 5), 9: (_RED, 5), 13: (_RED, 5), 17: (_RED, 5),
+    2: (_PEACH, 5), 3: (_PEACH, 5), 4: (_PEACH, 5),
+    6: (_PURPLE, 5), 7: (_PURPLE, 5), 8: (_PURPLE, 5),
+    10: (_YELLOW, 5), 11: (_YELLOW, 5), 12: (_YELLOW, 5),
+    14: (_GREEN, 5), 15: (_GREEN, 5), 16: (_GREEN, 5),
+    18: (_BLUE, 5), 19: (_BLUE, 5), 20: (_BLUE, 5),
 }
 
 _CONNECTION_STYLE = {
-    (0, 1): (_GRAY, 3),
-    (0, 5): (_GRAY, 3),
-    (0, 17): (_GRAY, 3),
-    (5, 9): (_GRAY, 3),
-    (9, 13): (_GRAY, 3),
-    (13, 17): (_GRAY, 3),
-    (1, 2): (_PEACH, 2),
-    (2, 3): (_PEACH, 2),
-    (3, 4): (_PEACH, 2),
-    (5, 6): (_PURPLE, 2),
-    (6, 7): (_PURPLE, 2),
-    (7, 8): (_PURPLE, 2),
-    (9, 10): (_YELLOW, 2),
-    (10, 11): (_YELLOW, 2),
-    (11, 12): (_YELLOW, 2),
-    (13, 14): (_GREEN, 2),
-    (14, 15): (_GREEN, 2),
-    (15, 16): (_GREEN, 2),
-    (17, 18): (_BLUE, 2),
-    (18, 19): (_BLUE, 2),
-    (19, 20): (_BLUE, 2),
+    (0, 1): (_GRAY, 3), (0, 5): (_GRAY, 3), (0, 17): (_GRAY, 3),
+    (5, 9): (_GRAY, 3), (9, 13): (_GRAY, 3), (13, 17): (_GRAY, 3),
+    (1, 2): (_PEACH, 2), (2, 3): (_PEACH, 2), (3, 4): (_PEACH, 2),
+    (5, 6): (_PURPLE, 2), (6, 7): (_PURPLE, 2), (7, 8): (_PURPLE, 2),
+    (9, 10): (_YELLOW, 2), (10, 11): (_YELLOW, 2), (11, 12): (_YELLOW, 2),
+    (13, 14): (_GREEN, 2), (14, 15): (_GREEN, 2), (15, 16): (_GREEN, 2),
+    (17, 18): (_BLUE, 2), (18, 19): (_BLUE, 2), (19, 20): (_BLUE, 2),
 }
 
 HAND_CONNECTIONS = frozenset(_CONNECTION_STYLE)
@@ -121,7 +84,6 @@ def _scaled(value, canvas_size, minimum=1):
     return max(minimum, int(round(value * canvas_size / REFERENCE_CANVAS)))
 
 
-# tọa độ pixel
 def landmarks_to_pixels(hand_landmarks, frame_width, frame_height):
     """MediaPipe result -> (21, 2) float32 array in real pixel units.
 
@@ -134,10 +96,6 @@ def landmarks_to_pixels(hand_landmarks, frame_width, frame_height):
     )
 
 
-# căn giữa và chuẩn hóa kích thước
-# lấy chính bàn tay làm tọa độ tham chiếu
-
-
 def normalize_landmarks(points_px):
     """Centre the hand and scale it so its bounding box spans HAND_FILL of the canvas.
 
@@ -146,23 +104,21 @@ def normalize_landmarks(points_px):
     axes and both axes are already in the same unit.
     """
     points_px = np.asarray(points_px, dtype=np.float32)
-    # xác định vùng bao quanh toàn bộ bàn tay
+
     lo = points_px.min(axis=0)
     hi = points_px.max(axis=0)
     extent = hi - lo
-    # tính kích thước vùng chuẩn
+
     box_size = float(extent.max()) / HAND_FILL
     if box_size <= 0:
         box_size = 1.0
 
-    # tâm bàn tay
     centre = lo + extent / 2.0
     origin = centre - box_size / 2.0
-    # dịch bàn tay về tọa độ mới -> chuẩn hóa [0,1]
+
     return ((points_px - origin) / box_size).astype(np.float32)
 
 
-# vẽ ảnh (không liên quan)
 def render_skeleton(norm_points, size=MODEL_INPUT_SIZE, canvas_size=CANVAS_SIZE):
     """Draw normalised landmarks as a skeleton. Returns (size, size, 3) uint8 **RGB**.
 
@@ -171,9 +127,7 @@ def render_skeleton(norm_points, size=MODEL_INPUT_SIZE, canvas_size=CANVAS_SIZE)
     showing it in an OpenCV window.
     """
     canvas = np.zeros((canvas_size, canvas_size, 3), dtype=np.uint8)
-    pts = np.rint(np.asarray(norm_points, dtype=np.float32) * canvas_size).astype(
-        np.int32
-    )
+    pts = np.rint(np.asarray(norm_points, dtype=np.float32) * canvas_size).astype(np.int32)
 
     for (start_idx, end_idx), (color, thickness) in _CONNECTION_STYLE.items():
         cv2.line(
@@ -241,7 +195,6 @@ def augment_landmarks(norm_points, rng, mirror=True):
     return pts.astype(np.float32)
 
 
-# hàm ghép các bước xử lí từ kết quả
 def preprocess_hand(hand_landmarks, frame_width, frame_height, size=MODEL_INPUT_SIZE):
     """Full live-inference chain: MediaPipe result -> (normalised points, RGB image)."""
     points_px = landmarks_to_pixels(hand_landmarks, frame_width, frame_height)
@@ -249,7 +202,6 @@ def preprocess_hand(hand_landmarks, frame_width, frame_height, size=MODEL_INPUT_
     return norm_points, render_skeleton(norm_points, size=size)
 
 
-# pass
 def model_input(image_rgb):
     """Add the batch axis. The model keeps its own Rescaling layer, so pixels stay 0-255."""
     return np.expand_dims(image_rgb.astype(np.float32), axis=0)

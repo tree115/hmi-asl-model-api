@@ -19,9 +19,11 @@ from errors.error_detection_static import (
     main as detect_feature_errors,
 )
 from features import feature_extraction as fe
+from feedback.feedback_manager import evaluate_attempt
 import numpy as np
-from pydantic import BaseModel, Field, FiniteFloat, model_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
+from ai.gesturesign import GestureSign, label_key
 from ai.onnx_alphabet import OnnxAlphabetClassifier
 
 
@@ -369,6 +371,7 @@ class Error:
 @asynccontextmanager
 async def lifespan(app):  # khởi tạo Engine và cấu hình FastAPI liên quan đến FE
     app.state.engine = Engine()
+    app.state.word_engine = GestureSign()
     yield
 
 
@@ -438,7 +441,8 @@ def capabilities():  # trả về thông tin cho FE/BE biết service này h�
             if engine.provider == "onnx_alphabet"
             else "static_alphabet"
         ),
-        "dynamic_word_recognition": False,
+        "dynamic_word_recognition": True,
+        "word_capabilities_endpoint": "/api/v1/ai/words/capabilities",
         "input_types": ["landmarks", "attempt_frames"],
         "coordinate_space": "mediapipe_image_normalized_v1",
         "mirrored": False,
@@ -449,8 +453,11 @@ def capabilities():  # trả về thông tin cho FE/BE biết service này h�
         "deployment_stage": "experimental",
         # các giới hạn như chưa hỗ trợ nhận diện từ, chấm điểm kỹ năng, chẩn đoán lỗi hay xác nhận đã kiểm thử webcam.
         "skill_scoring": False,  # chấm điểm kĩ năng người dùng
-        "error_diagnosis": False,  # chẩn đoán lỗi nhận diện
-        "adaptive_feedback": False,  # cấp phản hồi theo tình trạng người dùng
+        "error_diagnosis": False,  # detect còn thử nghiệm, chưa đủ tin cậy
+        "error_detection_endpoint": "/api/v1/ai/errors/detect",
+        "adaptive_feedback": True,  # cấp phản hồi theo lịch sử lỗi
+        "feedback_endpoint": "/api/v1/ai/feedback",
+        "feedback_levels_implemented": [1],  # cấp 2/3 hiện trả text như cấp 1
         "pilot": True,  # phản hồi từ người dùng để cải thiện sản phẩm
         "recommended_for_integration_trial": engine.provider == "onnx_alphabet",
         "webcam_validation_complete": False,  # kiểm tra webcam đã hoàn tất
@@ -465,14 +472,163 @@ def landmark_prediction(payload: LandmarkRequest):
     return app.state.engine.landmarks(payload)
 
 
-# @app.post("/api/v1/ai/predict/landmarks", response_model=Prediction)
+def _not_evaluated(status):
+    """Kết quả detection khi lượt này không đánh giá được (không tính đúng/sai)."""
+    return {
+        "status": status,
+        "score": None,
+        "components": {
+            group: {"score": None, "deviations": []}
+            for group in ("handshape", "orientation", "location")
+        },
+        "errors": [status],
+    }
+
+
+def run_error_detection(payload: LandmarkRequest):
+    """landmarks -> đặc trưng -> so với mẫu chuẩn. Trả về (chữ mục tiêu, detection)."""
+    target = payload.target_label.strip().upper()
+    if target not in app.state.engine.targets:  # J/Z và nhãn lạ chưa có mẫu tĩnh
+        return target, _not_evaluated("unsupported_target")
+    if payload.landmarks is None:
+        return target, _not_evaluated("no_hand")
+    try:
+        features = Features.feature_extract(payload)
+    except HTTPException:
+        return target, _not_evaluated("invalid_landmarks")
+    detection = Error.error_detection(features, target)
+    detection.setdefault(
+        "status", "no_hand" if detection.get("errors") else "evaluated"
+    )
+    return target, detection
+
+
 @app.post("/api/v1/ai/errors/detect", response_model=dict)
 def detect_errors(payload: LandmarkRequest):
-    features = Features.feature_extract(payload)
-    return Error.error_detection(features, payload.target_label)
+    target, detection = run_error_detection(payload)
+    return {"target_label": target, **detection}
+
+
+class ComponentHistory(BaseModel):
+    """Trạng thái lịch sử của một thành phần (H/L/O/M), do BE lưu và gửi lại."""
+
+    model_config = ConfigDict(extra="forbid")
+    level: int | None = Field(default=None, ge=1, le=3)
+    wrong_streak: int = Field(default=0, ge=0)
+    correct_streak: int = Field(default=0, ge=0)
+    total_wrong: int = Field(default=0, ge=0)
+    total_correct: int = Field(default=0, ge=0)
+    last_result: Literal["wrong", "correct"] | None = None
+    needs_review: bool = False
+
+
+class FeedbackRequest(LandmarkRequest):
+    mode: Literal["fixed", "adaptive"] = "adaptive"
+    history: dict[Literal["H", "L", "O", "M"], ComponentHistory] = Field(
+        default_factory=dict,
+        description=(
+            "Lịch sử của đúng (người học, chữ mục tiêu, phiên) do lượt trước "
+            "trả về trong trường history; gửi {} cho lượt đầu tiên."
+        ),
+    )
+    max_feedbacks: int | None = Field(default=None, ge=1, le=4)
+
+
+# Lịch sử do BE lưu: AI Server không giữ trạng thái giữa các request.
+@app.post("/api/v1/ai/feedback", response_model=dict)
+def feedback(payload: FeedbackRequest):
+    target, detection = run_error_detection(payload)
+    history = {k: v.model_dump() for k, v in payload.history.items()}
+    out = evaluate_attempt(
+        history,
+        target,
+        detection,
+        mode=payload.mode,
+        version="V1",
+        max_feedbacks=payload.max_feedbacks,
+    )
+    return {
+        "request_id": str(uuid4()),
+        "target_label": target,
+        "mode": payload.mode,
+        **out,
+        "detection": detection,
+    }
 
 
 # riêng cho J/Z
 @app.post("/api/v1/ai/predict/attempt", response_model=AttemptPrediction)
 def attempt_prediction(payload: AttemptRequest):
     return app.state.engine.attempt(payload)
+
+
+Point = tuple[Annotated[FiniteFloat, Field(ge=-100, le=100)],
+              Annotated[FiniteFloat, Field(ge=-100, le=100)],
+              Annotated[FiniteFloat, Field(ge=-100, le=100)]]
+Hand = Annotated[list[Point | None], Field(min_length=21, max_length=21)]
+
+
+class WordFrame(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    left_hand: Hand | None = None
+    right_hand: Hand | None = None
+    pose: Annotated[list[Point | None], Field(min_length=33, max_length=33)] | None = None
+    face: Annotated[list[Point | None], Field(min_length=468, max_length=468)] | None = None
+
+
+class WordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    client_attempt_id: str = Field(min_length=1, max_length=80)
+    target_label: str = Field(min_length=1, max_length=80)
+    fps: FiniteFloat = Field(ge=1, le=120)
+    coordinate_space: Literal["mediapipe_holistic_image_normalized_v1"] = "mediapipe_holistic_image_normalized_v1"
+    mirrored: Literal[False] = False
+    frames: list[WordFrame] = Field(min_length=1, max_length=600)
+
+    @model_validator(mode="after")
+    def capture_duration(self):
+        if (len(self.frames) - 1) / self.fps > 5.1:
+            raise ValueError("Word clip must span at most 5 seconds")
+        return self
+
+
+class WordPrediction(Prediction):
+    client_attempt_id: str
+    frames_received: int
+    frames_usable: int
+
+
+@app.get("/api/v1/ai/words/capabilities")
+def word_capabilities():
+    engine = app.state.word_engine
+    return {
+        "model_version": engine.meta["version"],
+        "feature_version": str(engine.meta["featureVersion"]),
+        "supported_targets": [row["label"] for row in engine.labels if row["shipped"]],
+        "coordinate_space": "mediapipe_holistic_image_normalized_v1",
+        "mirrored": False,
+        "max_duration_ms": 5000,
+        "confidence_threshold": engine.meta["calibration"]["notSureBelow"],
+    }
+
+
+@app.post("/api/v1/ai/predict/word", response_model=WordPrediction)
+def word_prediction(payload: WordRequest):
+    started = time.perf_counter()
+    engine = app.state.word_engine
+    target = engine.targets.get(label_key(payload.target_label))
+    status, usable, guesses = ("unsupported_target", 0, []) if target is None else engine.predict(
+        payload.frames, payload.fps
+    )
+    valid = status == "recognized"
+    label, score = guesses[0] if valid else (None, None)
+    return WordPrediction(
+        request_id=str(uuid4()), client_attempt_id=payload.client_attempt_id,
+        target_label=target or payload.target_label, status=status, valid=valid,
+        predicted_label=label, predicted_sign=label, score=score, model_confidence=score,
+        matches_target=(label == target) if valid else None,
+        top3=[Candidate(label=name, score=prob) for name, prob in guesses],
+        model_version=engine.meta["version"], feature_version=str(engine.meta["featureVersion"]),
+        recognition_method="gesturesign_onnx", frames_received=len(payload.frames),
+        frames_usable=usable, processing_ms=(time.perf_counter() - started) * 1000,
+    )

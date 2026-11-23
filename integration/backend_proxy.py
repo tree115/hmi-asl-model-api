@@ -49,4 +49,10 @@ def create_ai_router():
             "POST", "/api/v1/ai/errors/detect", json=await request.json()
         )
 
+    # BE nên tự gắn history đã lưu của (người học, chữ, phiên) vào body trước khi
+    # gửi, rồi lưu lại response["history"]; proxy này chỉ chuyển tiếp nguyên body.
+    @router.post("/feedback")
+    async def feedback(request: Request):
+        return await forward("POST", "/api/v1/ai/feedback", json=await request.json())
+
     return router
