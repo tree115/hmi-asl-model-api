@@ -75,6 +75,84 @@
         }
       }
     },
+    "/api/v1/ai/errors/detect": {
+      "post": {
+        "summary": "Detect Errors",
+        "operationId": "detect_errors_api_v1_ai_errors_detect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LandmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Detect Errors Api V1 Ai Errors Detect Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/feedback": {
+      "post": {
+        "summary": "Feedback",
+        "operationId": "feedback_api_v1_ai_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ai/predict/attempt": {
       "post": {
         "summary": "Attempt Prediction",
@@ -96,6 +174,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AttemptPrediction"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/words/capabilities": {
+      "get": {
+        "summary": "Word Capabilities",
+        "operationId": "word_capabilities_api_v1_ai_words_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/predict/word": {
+      "post": {
+        "summary": "Word Prediction",
+        "operationId": "word_prediction_api_v1_ai_predict_word_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WordPrediction"
                 }
               }
             }
@@ -378,6 +510,47 @@
         ],
         "title": "AttemptRequest"
       },
+      "BackendAttemptError": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "handshape",
+              "location",
+              "orientation",
+              "movement"
+            ],
+            "title": "Type"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Severity"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "severity"
+        ],
+        "title": "BackendAttemptError",
+        "description": "\u0110\u00fang schema AttemptErrorItem c\u1ee7a BE (POST /api/v1/attempts -> errors[])."
+      },
       "Candidate": {
         "properties": {
           "label": {
@@ -395,6 +568,413 @@
           "score"
         ],
         "title": "Candidate"
+      },
+      "ComponentHistory": {
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "wrong_streak": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Wrong Streak",
+            "default": 0
+          },
+          "correct_streak": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Correct Streak",
+            "default": 0
+          },
+          "total_wrong": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Wrong",
+            "default": 0
+          },
+          "total_correct": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Correct",
+            "default": 0
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "wrong",
+                  "correct"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ComponentHistory",
+        "description": "Tr\u1ea1ng th\u00e1i l\u1ecbch s\u1eed c\u1ee7a m\u1ed9t th\u00e0nh ph\u1ea7n (H/L/O/M), do BE l\u01b0u v\u00e0 g\u1eedi l\u1ea1i."
+      },
+      "FeedbackItem": {
+        "properties": {
+          "component": {
+            "type": "string",
+            "enum": [
+              "H",
+              "L",
+              "O",
+              "M"
+            ],
+            "title": "Component"
+          },
+          "error_type": {
+            "type": "string",
+            "enum": [
+              "handshape",
+              "location",
+              "orientation",
+              "movement"
+            ],
+            "title": "Error Type"
+          },
+          "level": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Level"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint"
+          },
+          "hint_source": {
+            "type": "string",
+            "enum": [
+              "deviation",
+              "sign_library",
+              "generic"
+            ],
+            "title": "Hint Source"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "visual": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visual"
+          },
+          "steps": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "component",
+          "error_type",
+          "level",
+          "message",
+          "hint",
+          "hint_source"
+        ],
+        "title": "FeedbackItem"
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "client_attempt_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Attempt Id"
+          },
+          "target_label": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Target Label"
+          },
+          "image_width": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Image Width"
+          },
+          "image_height": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Image Height"
+          },
+          "coordinate_space": {
+            "type": "string",
+            "const": "mediapipe_image_normalized_v1",
+            "title": "Coordinate Space",
+            "default": "mediapipe_image_normalized_v1"
+          },
+          "mirrored": {
+            "type": "boolean",
+            "const": false,
+            "title": "Mirrored",
+            "default": false
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/Frame"
+            },
+            "type": "array",
+            "maxItems": 180,
+            "minItems": 4,
+            "title": "Frames"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "adaptive"
+            ],
+            "title": "Mode",
+            "default": "adaptive"
+          },
+          "history": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ComponentHistory"
+            },
+            "propertyNames": {
+              "enum": [
+                "H",
+                "L",
+                "O",
+                "M"
+              ]
+            },
+            "type": "object",
+            "title": "History",
+            "description": "L\u1ecbch s\u1eed c\u1ee7a \u0111\u00fang (ng\u01b0\u1eddi h\u1ecdc, k\u00fd hi\u1ec7u, phi\u00ean) do l\u01b0\u1ee3t tr\u01b0\u1edbc tr\u1ea3 v\u1ec1 trong tr\u01b0\u1eddng history; g\u1eedi {} cho l\u01b0\u1ee3t \u0111\u1ea7u ti\u00ean c\u1ee7a phi\u00ean."
+          },
+          "max_feedbacks": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Feedbacks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_attempt_id",
+          "target_label",
+          "image_width",
+          "image_height",
+          "frames"
+        ],
+        "title": "FeedbackRequest",
+        "description": "C\u00f9ng body v\u1edbi /predict/attempt, th\u00eam mode + history."
+      },
+      "FeedbackResponse": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "client_attempt_id": {
+            "type": "string",
+            "title": "Client Attempt Id"
+          },
+          "target_label": {
+            "type": "string",
+            "title": "Target Label"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "adaptive"
+            ],
+            "title": "Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "correct",
+              "has_errors",
+              "not_evaluated"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Khi not_evaluated: uncertain | no_hand | invalid_landmarks | unsupported_target"
+          },
+          "is_correct": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Correct"
+          },
+          "recognition": {
+            "$ref": "#/components/schemas/RecognitionSummary"
+          },
+          "diagnosis_source": {
+            "type": "string",
+            "enum": [
+              "feature_templates",
+              "classifier_only",
+              "none"
+            ],
+            "title": "Diagnosis Source",
+            "description": "feature_templates: th\u00e0nh ph\u1ea7n sai l\u1ea5y t\u1eeb so s\u00e1nh \u0111\u1eb7c tr\u01b0ng v\u1edbi m\u1eabu chu\u1ea9n; classifier_only: ch\u01b0a so \u0111\u01b0\u1ee3c \u0111\u1eb7c tr\u01b0ng (J/Z ho\u1eb7c thi\u1ebfu m\u1eabu chu\u1ea9n), ch\u1ec9 bi\u1ebft classifier nh\u1eadn ra ch\u1eef kh\u00e1c"
+          },
+          "results": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "correct",
+                "wrong"
+              ]
+            },
+            "type": "object",
+            "title": "Results"
+          },
+          "feedbacks": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackItem"
+            },
+            "type": "array",
+            "title": "Feedbacks"
+          },
+          "feedback_level": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback Level",
+            "description": "C\u1ea5p c\u1ee7a feedback \u01b0u ti\u00ean; g\u1eedi BE l\u00e0m client_feedback_level"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/BackendAttemptError"
+            },
+            "type": "array",
+            "title": "Errors",
+            "description": "G\u1eedi nguy\u00ean v\u00e0o errors[] c\u1ee7a POST /api/v1/attempts (BE)"
+          },
+          "needs_review": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Needs Review"
+          },
+          "history": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "History"
+          },
+          "detection": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection"
+          },
+          "feedback_version": {
+            "type": "string",
+            "title": "Feedback Version",
+            "default": "feedback-l1-v1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "client_attempt_id",
+          "target_label",
+          "mode",
+          "status",
+          "recognition",
+          "diagnosis_source",
+          "results",
+          "feedbacks",
+          "errors",
+          "needs_review",
+          "history"
+        ],
+        "title": "FeedbackResponse"
       },
       "Frame": {
         "properties": {
@@ -687,6 +1267,80 @@
         ],
         "title": "Prediction"
       },
+      "RecognitionSummary": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "recognized",
+              "uncertain",
+              "no_hand",
+              "invalid_landmarks",
+              "unsupported_target"
+            ],
+            "title": "Status"
+          },
+          "predicted_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Label"
+          },
+          "matches_target": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Target"
+          },
+          "model_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Confidence"
+          },
+          "stability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stability"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "recognition_method": {
+            "type": "string",
+            "title": "Recognition Method"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "model_version",
+          "recognition_method"
+        ],
+        "title": "RecognitionSummary"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -726,6 +1380,396 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WordFrame": {
+        "properties": {
+          "left_hand": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        }
+                      ],
+                      "type": "array",
+                      "maxItems": 3,
+                      "minItems": 3
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array",
+                "maxItems": 21,
+                "minItems": 21
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left Hand"
+          },
+          "right_hand": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        }
+                      ],
+                      "type": "array",
+                      "maxItems": 3,
+                      "minItems": 3
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array",
+                "maxItems": 21,
+                "minItems": 21
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Right Hand"
+          },
+          "pose": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        }
+                      ],
+                      "type": "array",
+                      "maxItems": 3,
+                      "minItems": 3
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array",
+                "maxItems": 33,
+                "minItems": 33
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pose"
+          },
+          "face": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        },
+                        {
+                          "type": "number",
+                          "maximum": 100.0,
+                          "minimum": -100.0
+                        }
+                      ],
+                      "type": "array",
+                      "maxItems": 3,
+                      "minItems": 3
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array",
+                "maxItems": 468,
+                "minItems": 468
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Face"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "WordFrame"
+      },
+      "WordPrediction": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "feature_version": {
+            "type": "string",
+            "title": "Feature Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "recognized",
+              "uncertain",
+              "no_hand",
+              "invalid_landmarks",
+              "unsupported_target"
+            ],
+            "title": "Status"
+          },
+          "target_label": {
+            "type": "string",
+            "title": "Target Label"
+          },
+          "predicted_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Label"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "Legacy alias of model_confidence; NOT a learner skill score"
+          },
+          "predicted_sign": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Sign"
+          },
+          "model_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Confidence",
+            "description": "Classifier output, not a calibrated skill or correctness probability"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid",
+            "default": false
+          },
+          "matches_target": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Target",
+            "description": "Accepted predicted label matches target; null when assessment is unavailable"
+          },
+          "top3": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "type": "array",
+            "title": "Top3"
+          },
+          "error_type": {
+            "type": "null",
+            "title": "Error Type"
+          },
+          "diagnosis_supported": {
+            "type": "boolean",
+            "const": false,
+            "title": "Diagnosis Supported",
+            "default": false
+          },
+          "update_error_history": {
+            "type": "boolean",
+            "const": false,
+            "title": "Update Error History",
+            "default": false
+          },
+          "processing_ms": {
+            "type": "number",
+            "title": "Processing Ms"
+          },
+          "recognition_method": {
+            "type": "string",
+            "title": "Recognition Method",
+            "default": "static_classifier"
+          },
+          "motion_details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Details"
+          },
+          "client_attempt_id": {
+            "type": "string",
+            "title": "Client Attempt Id"
+          },
+          "frames_received": {
+            "type": "integer",
+            "title": "Frames Received"
+          },
+          "frames_usable": {
+            "type": "integer",
+            "title": "Frames Usable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "model_version",
+          "feature_version",
+          "status",
+          "target_label",
+          "processing_ms",
+          "client_attempt_id",
+          "frames_received",
+          "frames_usable"
+        ],
+        "title": "WordPrediction"
+      },
+      "WordRequest": {
+        "properties": {
+          "client_attempt_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Attempt Id"
+          },
+          "target_label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Target Label"
+          },
+          "fps": {
+            "type": "number",
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Fps"
+          },
+          "coordinate_space": {
+            "type": "string",
+            "const": "mediapipe_holistic_image_normalized_v1",
+            "title": "Coordinate Space",
+            "default": "mediapipe_holistic_image_normalized_v1"
+          },
+          "mirrored": {
+            "type": "boolean",
+            "const": false,
+            "title": "Mirrored",
+            "default": false
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/WordFrame"
+            },
+            "type": "array",
+            "maxItems": 600,
+            "minItems": 1,
+            "title": "Frames"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "client_attempt_id",
+          "target_label",
+          "fps",
+          "frames"
+        ],
+        "title": "WordRequest"
       }
     }
   }

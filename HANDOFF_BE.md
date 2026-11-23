@@ -16,6 +16,12 @@ Gửi cả gói này, không chỉ file ONNX. `.venv`, cache, secrets và báo c
 được Git bỏ qua. Nghiên cứu/demo/model cũ đã được chuyển ra ngoài thư mục dự án.
 Repo FE hmi-asl-app vẫn độc lập và không bị gộp vào đây.
 
+## Feedback (mới)
+
+`POST /api/v1/ai/feedback` trả nhận diện + lỗi theo thành phần + Feedback cấp 1, kèm `errors[]`
+đúng schema `AttemptErrorItem` của BE. Hướng dẫn nối và **danh sách việc FE/BE cần sửa** ở
+[HANDOFF_FEEDBACK.md](HANDOFF_FEEDBACK.md#việc-cần-sửa-khi-nối-gửi-befe).
+
 ## Khởi chạy và nối BE
 
 Chạy `./setup.ps1`, `./start-ai.ps1`; mặc định 127.0.0.1:8001.
@@ -74,6 +80,14 @@ chỉ xác nhận đã chạy classifier gate, không có nghĩa đã chấm k�
 score của API là alias confidence cũ, không lưu vào điểm kỹ năng. BE để score
 nghiệp vụ=null, errors=[]; error_type=null, diagnosis_supported=false,
 update_error_history=false. Không tự suy ra lỗi ngón tay từ nhãn khác mục tiêu.
+Ngoại lệ thử nghiệm: POST /api/v1/ai/errors/detect trả các sai lệch đặc trưng khi
+AI_ERROR_TEMPLATE_DATA trỏ tới file .npz template đã build và lưu trước
+(labels, means, stds). API cache và tái sử dụng template, không build lại mỗi
+request. Vector hiện tại có 46 chiều: 40 handshape (25 góc, 15 khoảng cách),
+4 orientation và 2 tọa độ cổ tay. Cần tạo lại template theo schema 46 chiều;
+dùng cùng luồng preprocess_hand → feature extraction khi tạo template. Template
+cũ 58 chiều không tương thích. Nếu chưa cấu hình, endpoint trả 503; không coi
+đây là chẩn đoán/điểm kỹ năng, không lưu vào lịch sử lỗi người học.
 
 uncertain/no_hand/invalid_landmarks/unsupported_target: matches_target=null.
 422: request sai; 503/504: service lỗi. Không lưu lỗi hệ thống thành người học sai.

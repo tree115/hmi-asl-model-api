@@ -1,0 +1,175 @@
+{
+  "request_id": "00000000-0000-0000-0000-000000000000",
+  "client_attempt_id": "demo-0001",
+  "target_label": "D",
+  "mode": "adaptive",
+  "status": "has_errors",
+  "reason": null,
+  "is_correct": false,
+  "recognition": {
+    "status": "recognized",
+    "predicted_label": "A",
+    "matches_target": false,
+    "model_confidence": 0.9979076385498047,
+    "stability": 1.0,
+    "model_version": "onnx-alphabet-45ff2c0e2692+motion-v4",
+    "recognition_method": "static_classifier"
+  },
+  "diagnosis_source": "feature_templates",
+  "results": {
+    "H": "wrong",
+    "L": "wrong",
+    "O": "wrong"
+  },
+  "feedbacks": [
+    {
+      "component": "H",
+      "error_type": "handshape",
+      "level": 1,
+      "message": "Hình dạng bàn tay của bạn chưa giống mẫu.",
+      "hint": "Hãy duỗi ngón trỏ thẳng hơn.",
+      "hint_source": "deviation",
+      "details": {
+        "feature": "index_pip_inner_angle",
+        "finger": "index",
+        "reference": 175.5781,
+        "actual": 0.3924,
+        "delta": -175.1856,
+        "unit": "degree",
+        "z_score": -45.62
+      },
+      "visual": null,
+      "steps": null
+    },
+    {
+      "component": "L",
+      "error_type": "location",
+      "level": 1,
+      "message": "Bạn đang đặt bàn tay chưa đúng vị trí.",
+      "hint": "Hãy dịch cổ tay sang phía tay trái của bạn một chút.",
+      "hint_source": "deviation",
+      "details": {
+        "feature": "wrist_x",
+        "reference": 0.3848,
+        "actual": 0.1929,
+        "delta": -0.1918,
+        "unit": "normalized_coordinate",
+        "z_score": -4.62
+      },
+      "visual": null,
+      "steps": null
+    },
+    {
+      "component": "O",
+      "error_type": "orientation",
+      "level": 1,
+      "message": "Lòng bàn tay của bạn đang hướng chưa đúng.",
+      "hint": "Hãy nghiêng các đầu ngón tay sang phía tay phải của bạn một chút.",
+      "hint_source": "deviation",
+      "details": {
+        "feature": "palm_roll_sin",
+        "reference": -0.0949,
+        "actual": 0.4823,
+        "delta": 0.5771,
+        "unit": "unitless",
+        "z_score": 4.07
+      },
+      "visual": null,
+      "steps": null
+    }
+  ],
+  "feedback_level": 1,
+  "errors": [
+    {
+      "type": "handshape",
+      "severity": "high",
+      "details": "L1: Hình dạng bàn tay của bạn chưa giống mẫu. Hãy duỗi ngón trỏ thẳng hơn."
+    },
+    {
+      "type": "location",
+      "severity": "high",
+      "details": "L1: Bạn đang đặt bàn tay chưa đúng vị trí. Hãy dịch cổ tay sang phía tay trái của bạn một chút."
+    },
+    {
+      "type": "orientation",
+      "severity": "high",
+      "details": "L1: Lòng bàn tay của bạn đang hướng chưa đúng. Hãy nghiêng các đầu ngón tay sang phía tay phải của bạn một chút."
+    }
+  ],
+  "needs_review": [],
+  "history": {
+    "H": {
+      "level": 1,
+      "wrong_streak": 1,
+      "correct_streak": 0,
+      "total_wrong": 1,
+      "total_correct": 0,
+      "last_result": "wrong",
+      "needs_review": false
+    },
+    "L": {
+      "level": 1,
+      "wrong_streak": 1,
+      "correct_streak": 0,
+      "total_wrong": 1,
+      "total_correct": 0,
+      "last_result": "wrong",
+      "needs_review": false
+    },
+    "O": {
+      "level": 1,
+      "wrong_streak": 1,
+      "correct_streak": 0,
+      "total_wrong": 1,
+      "total_correct": 0,
+      "last_result": "wrong",
+      "needs_review": false
+    }
+  },
+  "detection": {
+    "components": {
+      "handshape": {
+        "score": 17.0,
+        "deviations": [
+          {
+            "feature": "index_pip_inner_angle",
+            "finger": "index",
+            "reference": 175.5781,
+            "actual": 0.3924,
+            "delta": -175.1856,
+            "unit": "degree",
+            "z_score": -45.62
+          }
+        ]
+      },
+      "orientation": {
+        "score": 36.6,
+        "deviations": [
+          {
+            "feature": "palm_roll_sin",
+            "reference": -0.0949,
+            "actual": 0.4823,
+            "delta": 0.5771,
+            "unit": "unitless",
+            "z_score": 4.07
+          }
+        ]
+      },
+      "location": {
+        "score": 17.5,
+        "deviations": [
+          {
+            "feature": "wrist_x",
+            "reference": 0.3848,
+            "actual": 0.1929,
+            "delta": -0.1918,
+            "unit": "normalized_coordinate",
+            "z_score": -4.62
+          }
+        ]
+      }
+    },
+    "score": 21.7
+  },
+  "feedback_version": "feedback-l1-v1"
+}
