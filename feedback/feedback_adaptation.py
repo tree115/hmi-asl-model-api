@@ -10,6 +10,7 @@
 # chuẩn hóa xoay - tuy nhiên có những chữ cần xoay
 # các chữ cái dễ nhầm lẫn
 
+# viết kiểm thử để chứng minh error detection của model static
 """
 1. initial_levels: Hiện tại mặc định L1. Nếu muốn chọn cấp ban đầu theo mức độ nghiêm trọng thì tầng điều phối có thể truyền cấp đã xác định vào đây. Module này không cần biết cách tính severity.
 2. previous_history: Phải lấy từ lịch sử của đúng người học và đúng ký hiệu đang luyện tập.
@@ -17,6 +18,7 @@
 """
 
 from copy import deepcopy
+from feedback import feedback_manager
 
 # ---------- Cấu hình ----------
 LEVEL_MIN = 1
@@ -170,7 +172,7 @@ def update_error_history(
 
     return {
         "feedback_levels": feedback_levels,
-        "results": results,
+        "results": results,  # bỏ
         "needs_review": needs_review,
         "updated_history": history,
     }
