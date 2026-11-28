@@ -18,6 +18,7 @@ Hai cách dùng:
 """
 
 from feedback.feedback_adaptation import update_error_history
+from feedback.history_summary import record_attempt, summarize_history
 from feedback.feedback_generation import (
     component_results_from_detection,
     error_infos_from_detection,
@@ -61,6 +62,7 @@ def evaluate_attempt(
             "feedbacks": [],
             "needs_review": [],
             "history": history,
+            "history_summary": summarize_history(history),
         }
 
     out = update_error_history(history, component_results, initial_levels)
@@ -89,6 +91,10 @@ def evaluate_attempt(
     if max_feedbacks is not None:
         feedbacks = feedbacks[:max_feedbacks]
 
+    # Ghi thêm lịch sử theo lượt: cấp thực sự hiển thị, sửa được lỗi hay chưa.
+    shown_levels = {item["component"]: item["level"] for item in feedbacks}
+    new_history = record_attempt(out["updated_history"], component_results, shown_levels)
+
     all_correct = all(component_results.values())
     return {
         "status": "correct" if all_correct else "has_errors",
@@ -96,7 +102,8 @@ def evaluate_attempt(
         "results": out["results"],  # đúng/sai từng thành phần
         "feedbacks": feedbacks,  # chỉ các thành phần sai
         "needs_review": [] if mode == "fixed" else out["needs_review"],
-        "history": out["updated_history"],
+        "history": new_history,
+        "history_summary": summarize_history(new_history),
     }
 
 

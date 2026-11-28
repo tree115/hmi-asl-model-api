@@ -105,7 +105,15 @@
       "total_wrong": 1,
       "total_correct": 0,
       "last_result": "wrong",
-      "needs_review": false
+      "needs_review": false,
+      "attempts": 1,
+      "recent": [
+        "wrong"
+      ],
+      "last_feedback_level": 1,
+      "feedbacks_shown": 1,
+      "corrections": 0,
+      "fixed_after_level": {}
     },
     "L": {
       "level": 1,
@@ -114,7 +122,15 @@
       "total_wrong": 1,
       "total_correct": 0,
       "last_result": "wrong",
-      "needs_review": false
+      "needs_review": false,
+      "attempts": 1,
+      "recent": [
+        "wrong"
+      ],
+      "last_feedback_level": 1,
+      "feedbacks_shown": 1,
+      "corrections": 0,
+      "fixed_after_level": {}
     },
     "O": {
       "level": 1,
@@ -123,9 +139,93 @@
       "total_wrong": 1,
       "total_correct": 0,
       "last_result": "wrong",
-      "needs_review": false
+      "needs_review": false,
+      "attempts": 1,
+      "recent": [
+        "wrong"
+      ],
+      "last_feedback_level": 1,
+      "feedbacks_shown": 1,
+      "corrections": 0,
+      "fixed_after_level": {}
     }
   },
+  "history_summary": [
+    {
+      "component": "H",
+      "error_type": "handshape",
+      "name": "Hình dạng bàn tay",
+      "level": 1,
+      "wrong_streak": 1,
+      "correct_streak": 0,
+      "total_wrong": 1,
+      "total_correct": 0,
+      "attempts": 1,
+      "recent": [
+        "wrong"
+      ],
+      "feedbacks_shown": 1,
+      "corrections": 0,
+      "needs_review": false,
+      "progress": "new_error",
+      "progress_label": "Lỗi mới"
+    },
+    {
+      "component": "L",
+      "error_type": "location",
+      "name": "Vị trí bàn tay",
+      "level": 1,
+      "wrong_streak": 1,
+      "correct_streak": 0,
+      "total_wrong": 1,
+      "total_correct": 0,
+      "attempts": 1,
+      "recent": [
+        "wrong"
+      ],
+      "feedbacks_shown": 1,
+      "corrections": 0,
+      "needs_review": false,
+      "progress": "new_error",
+      "progress_label": "Lỗi mới"
+    },
+    {
+      "component": "O",
+      "error_type": "orientation",
+      "name": "Hướng bàn tay",
+      "level": 1,
+      "wrong_streak": 1,
+      "correct_streak": 0,
+      "total_wrong": 1,
+      "total_correct": 0,
+      "attempts": 1,
+      "recent": [
+        "wrong"
+      ],
+      "feedbacks_shown": 1,
+      "corrections": 0,
+      "needs_review": false,
+      "progress": "new_error",
+      "progress_label": "Lỗi mới"
+    },
+    {
+      "component": "M",
+      "error_type": "movement",
+      "name": "Chuyển động",
+      "level": null,
+      "wrong_streak": 0,
+      "correct_streak": 0,
+      "total_wrong": 0,
+      "total_correct": 0,
+      "attempts": 0,
+      "recent": [],
+      "feedbacks_shown": 0,
+      "corrections": 0,
+      "needs_review": false,
+      "progress": "no_data",
+      "progress_label": "Chưa có dữ liệu"
+    }
+  ],
   "detection": {
     "components": {
       "handshape": {
@@ -171,5 +271,5 @@
     },
     "score": 21.7
   },
-  "feedback_version": "feedback-l1-v1"
+  "feedback_version": "feedback-l1-v2"
 }

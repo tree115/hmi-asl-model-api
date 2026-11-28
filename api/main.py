@@ -25,8 +25,9 @@ from feedback.feedback_generation import (
     error_infos_from_detection,
 )
 from feedback.feedback_manager import evaluate_attempt
+from feedback.history_summary import summarize_history
 
-FEEDBACK_VERSION = "feedback-l1-v1"
+FEEDBACK_VERSION = "feedback-l1-v2"
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
@@ -531,6 +532,48 @@ class ComponentHistory(BaseModel):
     total_correct: int = Field(default=0, ge=0)
     last_result: Literal["wrong", "correct"] | None = None
     needs_review: bool = False
+    # Theo dõi thêm (tuần 6). Mặc định cho phép history cũ không có các trường này.
+    attempts: int = Field(default=0, ge=0)
+    recent: list[Literal["wrong", "correct"]] = Field(default_factory=list, max_length=10)
+    last_feedback_level: int | None = Field(default=None, ge=1, le=3)
+    feedbacks_shown: int = Field(default=0, ge=0)
+    corrections: int = Field(default=0, ge=0)
+    fixed_after_level: dict[Literal["1", "2", "3"], int] = Field(default_factory=dict)
+
+
+class HistorySummaryRow(BaseModel):
+    """Một dòng bảng lịch sử lỗi để FE hiển thị."""
+
+    component: Literal["H", "L", "O", "M"]
+    error_type: Literal["handshape", "location", "orientation", "movement"]
+    name: str
+    level: int | None
+    wrong_streak: int
+    correct_streak: int
+    total_wrong: int
+    total_correct: int
+    attempts: int
+    recent: list[Literal["wrong", "correct"]]
+    feedbacks_shown: int
+    corrections: int
+    needs_review: bool
+    progress: Literal["no_data", "new_error", "not_improving", "improving", "stable"]
+    progress_label: str
+
+
+class HistorySummaryRequest(BaseModel):
+    history: dict[Literal["H", "L", "O", "M"], ComponentHistory] = Field(default_factory=dict)
+
+
+class HistorySummaryResponse(BaseModel):
+    rows: list[HistorySummaryRow]
+
+
+@app.post("/api/v1/ai/feedback/history-summary", response_model=HistorySummaryResponse)
+def history_summary(payload: HistorySummaryRequest):
+    """Bảng lịch sử lỗi + đánh giá tiến bộ từ history đã lưu (không chấm lượt mới)."""
+    history = {k: v.model_dump() for k, v in payload.history.items()}
+    return {"rows": summarize_history(history)}
 
 
 class FeedbackRequest(AttemptRequest):
@@ -610,6 +653,9 @@ class FeedbackResponse(BaseModel):
     )
     needs_review: list[str]
     history: dict
+    history_summary: list[HistorySummaryRow] = Field(
+        description="Bảng lịch sử lỗi theo thành phần sau lượt này (để hiển thị)"
+    )
     detection: dict | None = None
     feedback_version: str = FEEDBACK_VERSION
 
@@ -670,6 +716,7 @@ def feedback(payload: FeedbackRequest):
             **base, status="not_evaluated", reason=recog.status, is_correct=None,
             diagnosis_source="none", results={}, feedbacks=[], feedback_level=None,
             errors=[], needs_review=[], history=history,
+            history_summary=summarize_history(history),
         )
 
     dynamic = target in {"J", "Z"}
@@ -739,6 +786,7 @@ def feedback(payload: FeedbackRequest):
         errors=errors,
         needs_review=out["needs_review"],
         history=out["history"],
+        history_summary=out["history_summary"],
         detection=detection,
     )
 

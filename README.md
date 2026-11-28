@@ -76,6 +76,7 @@ Mọi endpoint nghiệp vụ có tiền tố `/api/v1/ai`. Schema đầy đủ �
 | POST | `/api/v1/ai/predict/attempt` | Nhận diện một lượt nhiều khung hình (4–180), gồm cả J/Z |
 | POST | `/api/v1/ai/errors/detect` | So đặc trưng một khung hình với mẫu chuẩn, trả sai lệch theo thành phần |
 | POST | `/api/v1/ai/feedback` | Nhận diện + thành phần sai + Feedback cấp 1 theo lịch sử, trả `errors` đúng schema BE |
+| POST | `/api/v1/ai/feedback/history-summary` | Bảng lịch sử lỗi theo thành phần và đánh giá tiến bộ, từ `history` đã lưu |
 | GET | `/api/v1/ai/words/capabilities` | Danh sách 250 từ hỗ trợ |
 | POST | `/api/v1/ai/predict/word` | Nhận diện từ từ chuỗi landmark MediaPipe Holistic (≤ 5 giây) |
 

@@ -176,6 +176,40 @@ class FeedbackApiTests(unittest.TestCase):
         finally:
             os.environ["AI_ERROR_TEMPLATE_DATA"] = saved
 
+    # ---- lịch sử lỗi (tuần 6) ----
+    def test_feedback_returns_history_summary(self):
+        history = {}
+        for _ in range(2):
+            body = self.post("B", history=history)
+            history = body["history"]
+        rows = {r["component"]: r for r in body["history_summary"]}
+        self.assertEqual(list(rows), ["H", "L", "O", "M"])
+        self.assertEqual(rows["H"]["progress"], "not_improving")
+        self.assertEqual(rows["H"]["recent"], ["wrong", "wrong"])
+        self.assertEqual(rows["H"]["feedbacks_shown"], 2)
+        self.assertEqual(rows["M"]["progress_label"], "Chưa có dữ liệu")
+
+        body = self.post("A", history=history)
+        h = {r["component"]: r for r in body["history_summary"]}["H"]
+        self.assertEqual(h["progress"], "improving")
+        self.assertEqual(h["corrections"], 1)
+        self.assertEqual(body["history"]["H"]["fixed_after_level"], {"1": 1})
+
+    def test_history_summary_endpoint(self):
+        history = self.post("B")["history"]
+        r = self.client.post("/api/v1/ai/feedback/history-summary", json={"history": history})
+        self.assertEqual(r.status_code, 200)
+        rows = {row["component"]: row for row in r.json()["rows"]}
+        self.assertEqual(rows["H"]["progress"], "new_error")
+        empty = self.client.post("/api/v1/ai/feedback/history-summary", json={}).json()
+        self.assertTrue(all(row["progress"] == "no_data" for row in empty["rows"]))
+
+    def test_old_history_format_accepted(self):
+        old = {"H": {"level": 1, "wrong_streak": 1, "correct_streak": 0, "total_wrong": 1,
+                     "total_correct": 0, "last_result": "wrong", "needs_review": False}}
+        body = self.post("B", history=old)
+        self.assertEqual(body["history"]["H"]["total_wrong"], 2)
+
     def test_invalid_requests_rejected(self):
         for body in (
             attempt_body("B", history={"H": {"level": 5}}),

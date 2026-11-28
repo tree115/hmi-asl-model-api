@@ -80,6 +80,44 @@ await api.createAttempt({
 })
 ```
 
+## Lịch sử lỗi và đánh giá tiến bộ
+
+Mỗi response `/feedback` có `history_summary`: bảng 4 dòng H, L, O, M, dùng để hiển thị
+màn lịch sử lỗi. Ví dụ:
+
+| Thành phần | Cấp hiện tại | Sai liên tiếp | Đúng liên tiếp | Đánh giá tiến bộ |
+| --- | --- | --- | --- | --- |
+| H – Hình dạng bàn tay | 3 | 2 | 0 | Chưa cải thiện |
+| L – Vị trí bàn tay | 1 | 1 | 0 | Lỗi mới |
+| O – Hướng bàn tay | 2 | 0 | 2 | Đang tiến bộ |
+| M – Chuyển động | – | 0 | 0 | Chưa có dữ liệu |
+
+Mỗi dòng gồm: `name`, `level`, `wrong_streak`, `correct_streak`, `total_wrong`, `total_correct`,
+`attempts`, `recent` (tối đa 10 kết quả gần nhất, cũ → mới), `feedbacks_shown`, `corrections`,
+`needs_review`, `progress`, `progress_label`.
+
+Quy tắc đánh giá tiến bộ (`progress`):
+
+| Mã | Nhãn | Khi nào |
+| --- | --- | --- |
+| `no_data` | Chưa có dữ liệu | Thành phần chưa được đánh giá lượt nào (M ở chữ tĩnh) |
+| `new_error` | Lỗi mới | Lượt gần nhất sai, và đây là lần sai đầu tiên |
+| `not_improving` | Chưa cải thiện | Lượt gần nhất sai, đã sai từ 2 lần trở lên |
+| `improving` | Đang tiến bộ | Lượt gần nhất đúng, trước đó từng sai |
+| `stable` | Ổn định | Đúng từ đầu, chưa sai lần nào |
+
+Tiêu chí đánh giá **sau khi cung cấp feedback** (lưu trong `history`, dùng cho thí nghiệm):
+- `feedbacks_shown`: số lần đã hiển thị feedback cho thành phần đó.
+- `corrections`: số lần sửa được lỗi (lượt sai có feedback, lượt kế tiếp đúng).
+- `fixed_after_level`: `corrections` tách theo cấp feedback ngay trước khi sửa được,
+  ví dụ `{"1": 2, "2": 1}`. Dùng để so sánh hiệu quả từng cấp giữa `fixed` và `adaptive`.
+
+Màn lịch sử không cần chấm lượt mới: gọi `POST /api/v1/ai/feedback/history-summary` với
+`{"history": <history đã lưu>}` để lấy lại bảng.
+
+**Lưu trữ:** `history` mới có thêm các trường trên. History cũ (không có các trường này)
+vẫn được nhận. Bên giữ history (FE `sessionStorage` hoặc cột JSON ở BE) lưu nguyên object.
+
 ## Việc cần sửa khi nối (gửi BE/FE)
 
 AI đã sẵn sàng. Không sửa gì thì FE/BE vẫn chạy như cũ (`/predict/attempt` không đổi), nhưng
